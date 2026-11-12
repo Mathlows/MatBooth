@@ -13,6 +13,8 @@ DEFAUTS = {
     # 0 = pas de limite sur l'ensemble de l'événement
     "limite_impressions": 0,
     "apercu_miroir": True,
+    # ISO de l'appareil réel ("Auto", "100", "1600"…). None = garder le réglage de l'appareil.
+    "camera": {"iso_apercu": None, "iso_prise": None},
     "delai_inactivite_resultat": 90,
     "ajustements": {"luminosite": 1.0, "contraste": 1.0, "saturation": 1.0},
     # 10x15 à 300 dpi, en paysage

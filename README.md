@@ -14,7 +14,7 @@ Matériel visé : Raspberry Pi 5, appareil photo Canon (via gphoto2), imprimante
 ## Avancement
 
 - [x] Étape 1 : parcours client complet, avec caméra et imprimante simulées
-- [ ] Étape 2 : appareil Canon (aperçu en direct, ISO aperçu / prise de vue, reconnexion)
+- [x] Étape 2 : appareil Canon (aperçu en direct, ISO aperçu / prise de vue, reconnexion)
 - [ ] Étape 3 : imprimante DNP RX1HS (10x15, bandes 5x15, compteur, alertes)
 - [ ] Étape 4 : administration (accès caché + code PIN, profils d'événement, cadres, réglages couleur, galerie)
 - [ ] Étape 5 : envoi des photos (QR code, e-mail, clé USB), activable par l'admin
@@ -35,6 +35,40 @@ python3 -m venv .venv
 
 Puis ouvrir <http://localhost:8000> dans le navigateur.
 Sur la borne, ajouter `?kiosque=1` à l'adresse pour masquer le curseur de la souris.
+
+## Brancher l'appareil photo Canon
+
+Testé avec un **Canon EOS 200D** en USB. Sur le Raspberry Pi :
+
+```bash
+sudo apt install gphoto2          # outil de diagnostic (la bibliothèque Python est dans requirements.txt)
+# Le bureau monte l'appareil comme un disque et le bloque : on désactive ce montage automatique.
+systemctl --user mask --now gvfs-gphoto2-volume-monitor.service
+pkill gvfsd-gphoto2
+gphoto2 --auto-detect             # doit afficher le modèle de l'appareil
+MATBOOTH_CAMERA=gphoto2 .venv/bin/python -m matbooth
+```
+
+Sur l'appareil, de préférence :
+
+- molette en **M** ou **Tv** (en mode automatique vert, l'ISO ne peut pas être changé à distance) ;
+- objectif en **MF** (mise au point manuelle) : en autofocus, une pièce sombre peut faire échouer la prise ;
+- **Arrêt auto : Désactivé** dans les menus, et idéalement une batterie factice sur secteur.
+
+Si l'appareil se met quand même en veille ou est débranché, l'aperçu affiche « Connexion à l'appareil photo… »
+et Matbooth le reconnecte tout seul dès qu'il est rallumé (pas besoin de redémarrer le logiciel).
+Les photos passent par la mémoire vive de l'appareil : rien n'est enregistré sur sa carte SD.
+
+### ISO de l'aperçu et de la prise de vue
+
+Avec un flash, on photographie à ISO bas, ce qui rendrait l'aperçu presque noir. On peut donc régler un ISO
+différent pour l'aperçu, dans `reglages.json` (en attendant l'écran d'administration de l'étape 4) :
+
+```json
+"camera": { "iso_apercu": "6400", "iso_prise": "200" }
+```
+
+Les valeurs sont celles proposées par l'appareil (`gphoto2 --get-config iso`). `null` = garder le réglage de l'appareil.
 
 ## Où sont les données
 
@@ -59,7 +93,7 @@ le nom du fichier devient le nom affiché (`fleurs_roses.png` → « Fleurs rose
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `MATBOOTH_DONNEES` | `~/matbooth-donnees` | Dossier des données |
-| `MATBOOTH_CAMERA` | `simule` | Caméra utilisée |
+| `MATBOOTH_CAMERA` | `simule` | Caméra utilisée : `simule` ou `gphoto2` |
 | `MATBOOTH_IMPRIMANTE` | `simule` | Imprimante utilisée |
 | `MATBOOTH_PORT` | `8000` | Port du serveur |
 

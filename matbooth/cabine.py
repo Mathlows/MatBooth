@@ -60,6 +60,7 @@ class Cabine:
         self.reglages = Reglages(dossier_donnees / "reglages.json")
         self.base = Base(dossier_donnees / "matbooth.sqlite")
         self.camera = camera
+        self.camera.appliquer_reglages(self.reglages["camera"])
         self.imprimante = imprimante
         self._seance: Seance | None = None
         self._verrou = threading.RLock()
