@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Matbooth</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Accueil : choix du mode -->
+  <section id="ecran-accueil" class="ecran actif">
+    <p class="surtitre">Bienvenue</p>
+    <h1 id="titre-evenement">&nbsp;</h1>
+    <p class="consigne">Choisissez votre photo</p>
+    <div id="modes" class="modes"></div>
+  </section>
+
+  <!-- Prise de vue -->
+  <section id="ecran-capture" class="ecran">
+    <img id="apercu" class="apercu" alt="">
+    <div id="progression" class="progression"></div>
+    <div id="decompte" class="decompte"></div>
+    <div id="message-capture" class="message-capture"></div>
+    <div id="vignettes-prises" class="vignettes-prises"></div>
+    <div id="flash" class="flash"></div>
+  </section>
+
+  <!-- Attente (traitement, impression) -->
+  <section id="ecran-attente" class="ecran">
+    <div class="sablier"></div>
+    <p id="texte-attente" class="grand-texte"></p>
+  </section>
+
+  <!-- Résultat : filtres, cadres, actions -->
+  <section id="ecran-resultat" class="ecran">
+    <div class="resultat-photo">
+      <img id="rendu" alt="Votre photo">
+    </div>
+    <aside class="resultat-panneau">
+      <h2>Filtres</h2>
+      <div id="filtres" class="choix"></div>
+      <h2>Cadres</h2>
+      <div id="cadres" class="choix"></div>
+      <div class="actions">
+        <button id="btn-imprimer" class="bouton principal">Imprimer</button>
+        <p id="info-impression" class="info"></p>
+        <button id="btn-terminer" class="bouton">Terminer sans imprimer</button>
+        <div class="actions-secondaires">
+          <button id="btn-reprendre" class="bouton discret">Recommencer</button>
+          <button id="btn-supprimer" class="bouton discret danger">Supprimer</button>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- Fin -->
+  <section id="ecran-merci" class="ecran">
+    <p class="grand-texte" id="texte-merci">Merci !</p>
+    <p class="consigne" id="sous-texte-merci"></p>
+  </section>
+
+  <!-- Fenêtre de confirmation -->
+  <div id="modale" class="modale" hidden>
+    <div class="modale-boite">
+      <p id="modale-texte" class="modale-texte"></p>
+      <div id="modale-boutons" class="modale-boutons"></div>
+    </div>
+  </div>
+
+  <div id="bandeau-erreur" class="bandeau-erreur" hidden></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
