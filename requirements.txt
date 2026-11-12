@@ -1,5 +1,6 @@
 fastapi>=0.115
 uvicorn[standard]>=0.30
 pillow>=10.1
+python-multipart>=0.0.9
 # Appareil photo réel (MATBOOTH_CAMERA=gphoto2) ; inutile pour la caméra simulée
 gphoto2>=2.5; sys_platform != "win32"

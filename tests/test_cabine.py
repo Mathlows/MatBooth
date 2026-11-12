@@ -67,7 +67,9 @@ def test_cadre_d_un_autre_mode_refuse(client):
 
 
 def test_limites_d_impression(client, cabine):
-    cabine.reglages.modifier({"limite_impressions": 3, "copies_max_par_photo": 2})
+    evenement = cabine.base.evenement(cabine.evenement)
+    profil = {**evenement["profil"], "limite_impressions": 3, "copies_max_par_photo": 2}
+    cabine.base.modifier_evenement(evenement["id"], evenement["nom"], profil)
 
     seance = photographier(client, "collage4")
     assert client.post(f"/api/seances/{seance}/imprimer", json={"copies": 3}).status_code == 400

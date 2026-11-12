@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Matbooth · Administration</title>
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+  <!-- Code PIN -->
+  <section id="connexion" class="connexion">
+    <h1>Administration</h1>
+    <p class="doux">Entrez le code</p>
+    <div id="points" class="points"></div>
+    <p id="erreur-pin" class="erreur-pin"></p>
+    <div id="pave" class="pave"></div>
+    <button id="btn-retour-borne-pin" class="lien">Retour à la borne</button>
+  </section>
+
+  <!-- Administration -->
+  <div id="admin" class="admin" hidden>
+    <header class="entete">
+      <div>
+        <p class="doux petit">Événement actif</p>
+        <p id="nom-actif" class="nom-actif"></p>
+      </div>
+      <div class="entete-actions">
+        <button id="btn-retour-borne" class="bouton principal">Retour à la borne</button>
+        <button id="btn-deconnexion" class="bouton">Se déconnecter</button>
+      </div>
+    </header>
+
+    <nav id="onglets" class="onglets">
+      <button data-onglet="tableau" class="actif">Tableau de bord</button>
+      <button data-onglet="evenements">Événements</button>
+      <button data-onglet="cadres">Cadres</button>
+      <button data-onglet="photos">Photos</button>
+      <button data-onglet="reglages">Réglages</button>
+    </nav>
+
+    <main>
+      <!-- Tableau de bord -->
+      <section id="onglet-tableau" class="onglet actif">
+        <div id="alerte-pin" class="alerte" hidden>
+          Le code d'accès est encore celui par défaut (1234). Changez-le dans l'onglet Réglages.
+        </div>
+        <div id="chiffres" class="chiffres"></div>
+        <div id="materiel" class="materiel"></div>
+      </section>
+
+      <!-- Événements -->
+      <section id="onglet-evenements" class="onglet">
+        <div class="carte">
+          <h2>Événements</h2>
+          <div id="liste-evenements" class="liste-evenements"></div>
+          <form id="form-nouvel-evenement" class="ligne-form">
+            <input id="nom-nouvel-evenement" type="text" maxlength="80" placeholder="Nom du nouvel événement (ex. Mariage Julie &amp; Paul)" required>
+            <button class="bouton principal">Créer</button>
+          </form>
+          <p class="doux petit">Un nouvel événement reprend les réglages de l'événement actif.</p>
+        </div>
+
+        <form id="form-evenement" class="carte">
+          <h2>Réglages de « <span id="titre-edition"></span> »</h2>
+
+          <label class="champ">Nom affiché sur la borne
+            <input id="ev-nom" type="text" maxlength="80" required>
+          </label>
+
+          <fieldset>
+            <legend>Modes photo proposés</legend>
+            <div id="ev-modes" class="puces"></div>
+          </fieldset>
+
+          <div class="grille-champs">
+            <label class="champ">Compte à rebours (secondes)
+              <input id="ev-compte" type="number" min="1" max="10" required>
+            </label>
+            <label class="champ">Exemplaires max par photo
+              <input id="ev-copies" type="number" min="1" max="10" required>
+            </label>
+            <label class="champ">Limite d'impressions (0 = illimité)
+              <input id="ev-limite" type="number" min="0" max="100000" required>
+            </label>
+            <label class="champ">Retour automatique après (secondes)
+              <input id="ev-inactivite" type="number" min="15" max="600" required>
+            </label>
+          </div>
+
+          <label class="interrupteur">
+            <input id="ev-miroir" type="checkbox">
+            <span>Aperçu en miroir (comme un selfie)</span>
+          </label>
+
+          <fieldset>
+            <legend>Filtres proposés</legend>
+            <div id="ev-filtres" class="puces"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Cadres proposés</legend>
+            <div id="ev-cadres" class="puces puces-images"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Couleurs des photos</legend>
+            <div class="couleurs">
+              <div class="curseurs">
+                <label class="curseur">Luminosité <output id="sortie-luminosite"></output>
+                  <input id="ev-luminosite" type="range" min="0.5" max="1.5" step="0.05">
+                </label>
+                <label class="curseur">Contraste <output id="sortie-contraste"></output>
+                  <input id="ev-contraste" type="range" min="0.5" max="1.5" step="0.05">
+                </label>
+                <label class="curseur">Saturation <output id="sortie-saturation"></output>
+                  <input id="ev-saturation" type="range" min="0" max="2" step="0.05">
+                </label>
+                <button id="btn-couleurs-defaut" type="button" class="bouton petit">Remettre à zéro</button>
+              </div>
+              <div class="apercu-couleur">
+                <img id="apercu-couleur" alt="Aperçu des couleurs">
+                <button id="btn-actualiser-apercu" type="button" class="bouton petit">Actualiser l'aperçu</button>
+              </div>
+            </div>
+          </fieldset>
+
+          <div class="barre-enregistrer">
+            <button class="bouton principal">Enregistrer</button>
+            <span id="etat-enregistrement" class="doux"></span>
+          </div>
+        </form>
+      </section>
+
+      <!-- Cadres -->
+      <section id="onglet-cadres" class="onglet">
+        <form id="form-cadre" class="carte">
+          <h2>Ajouter un cadre</h2>
+          <p class="doux petit">Image PNG de 1800 x 1200 pixels, transparente là où la photo doit apparaître.</p>
+          <div class="ligne-form">
+            <input id="fichier-cadre" type="file" accept="image/png" required>
+            <select id="portee-cadre"></select>
+            <button class="bouton principal">Ajouter</button>
+          </div>
+          <div id="avertissements-cadre" class="alerte" hidden></div>
+        </form>
+        <div id="grille-cadres" class="grille-cadres"></div>
+      </section>
+
+      <!-- Photos -->
+      <section id="onglet-photos" class="onglet">
+        <div class="carte ligne-form">
+          <select id="choix-evenement-photos"></select>
+          <span id="nb-photos" class="doux"></span>
+          <a id="lien-archive" class="bouton" href="#">Tout télécharger (ZIP)</a>
+        </div>
+        <div id="grille-photos" class="grille-photos"></div>
+      </section>
+
+      <!-- Réglages -->
+      <section id="onglet-reglages" class="onglet">
+        <form id="form-camera" class="carte">
+          <h2>Appareil photo</h2>
+          <div class="grille-champs">
+            <label class="champ">ISO de l'aperçu en direct
+              <select id="iso-apercu"></select>
+            </label>
+            <label class="champ">ISO de la prise de vue
+              <select id="iso-prise"></select>
+            </label>
+          </div>
+          <div class="barre-enregistrer">
+            <button class="bouton principal">Enregistrer</button>
+            <span id="etat-camera" class="doux"></span>
+          </div>
+        </form>
+
+        <form id="form-pin" class="carte">
+          <h2>Code d'accès</h2>
+          <div class="grille-champs">
+            <label class="champ">Code actuel
+              <input id="pin-ancien" type="password" inputmode="numeric" autocomplete="off" required>
+            </label>
+            <label class="champ">Nouveau code (4 à 8 chiffres)
+              <input id="pin-nouveau" type="password" inputmode="numeric" pattern="\d{4,8}" autocomplete="off" required>
+            </label>
+          </div>
+          <div class="barre-enregistrer">
+            <button class="bouton principal">Changer le code</button>
+            <span id="etat-pin" class="doux"></span>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <!-- Photo en grand -->
+  <div id="visionneuse" class="visionneuse" hidden>
+    <img id="visionneuse-image" alt="">
+    <div class="visionneuse-actions">
+      <a id="visionneuse-telecharger" class="bouton" href="#">Télécharger</a>
+      <button id="visionneuse-supprimer" class="bouton danger">Supprimer</button>
+      <button id="visionneuse-fermer" class="bouton principal">Fermer</button>
+    </div>
+  </div>
+
+  <div id="message" class="message" hidden></div>
+
+  <script src="/static/admin.js"></script>
+</body>
+</html>

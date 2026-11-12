@@ -24,6 +24,10 @@ class Camera:
     def appliquer_reglages(self, reglages: dict) -> None:
         """Réglages du loueur pour l'appareil (ISO aperçu / prise de vue…)."""
 
+    def valeurs_iso(self) -> list[str] | None:
+        """ISO proposés par l'appareil branché (None = inconnus)."""
+        return None
+
     def apercu_jpeg(self) -> bytes:
         """Une image de l'aperçu en direct, au format JPEG."""
         raise NotImplementedError
@@ -227,6 +231,15 @@ class CameraGphoto2(Camera):
             self._iso_apercu = None if iso_apercu is None else str(iso_apercu)
             self._iso_prise = None if iso_prise is None else str(iso_prise)
             self._iso_courant = None  # forcer la réapplication au prochain usage
+
+    def valeurs_iso(self) -> list[str] | None:
+        with self._verrou:
+            if self._camera is None:
+                return None
+            try:
+                return list(self._camera.get_config().get_child_by_name("iso").get_choices())
+            except self._gp.GPhoto2Error:
+                return None
 
     # --- Utilisation --------------------------------------------------------
 

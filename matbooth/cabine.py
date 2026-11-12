@@ -20,7 +20,7 @@ from . import cadres, images
 from .base import Base
 from .materiel.camera import Camera
 from .materiel.imprimante import Imprimante
-from .reglages import Reglages
+from .reglages import PROFIL_DEFAUT, Reglages, fusion
 
 journal = logging.getLogger(__name__)
 
@@ -60,27 +60,62 @@ class Cabine:
         self.reglages = Reglages(dossier_donnees / "reglages.json")
         self.base = Base(dossier_donnees / "matbooth.sqlite")
         self.camera = camera
-        self.camera.appliquer_reglages(self.reglages["camera"])
         self.imprimante = imprimante
         self._seance: Seance | None = None
         self._verrou = threading.RLock()
+        self._preparer_evenement()
+        self.appliquer_reglages_camera()
+
+    def _preparer_evenement(self) -> None:
+        """Garantit qu'un événement existe et qu'il est actif."""
+        evenements = self.base.lister_evenements()
+        if not evenements:
+            # Premier lancement, ou reprise des réglages de l'étape 1 (un seul événement global).
+            anciens = self.reglages.anciens
+            ancien_evenement = anciens.get("evenement") or {}
+            identifiant = ancien_evenement.get("dossier") or "mon-evenement"
+            profil = fusion(PROFIL_DEFAUT, {k: v for k, v in anciens.items() if k in PROFIL_DEFAUT})
+            self.base.creer_evenement(identifiant, ancien_evenement.get("nom") or "Mon événement", profil)
+            self.reglages.modifier({"evenement_actif": identifiant})
+        elif self.base.evenement(self.reglages["evenement_actif"] or "") is None:
+            self.reglages.modifier({"evenement_actif": evenements[0]["id"]})
+
+    def appliquer_reglages_camera(self) -> None:
+        try:
+            self.camera.appliquer_reglages(self.reglages["camera"])
+        except Exception:
+            journal.exception("Impossible d'appliquer les réglages de la caméra")
 
     # --- Informations -------------------------------------------------------
 
     @property
     def evenement(self) -> str:
-        return self.reglages["evenement"]["dossier"]
+        """Identifiant de l'événement actif (c'est aussi le nom de son dossier)."""
+        return self.reglages["evenement_actif"]
+
+    @property
+    def profil(self) -> dict:
+        """Réglages de l'événement actif."""
+        return self.base.evenement(self.evenement)["profil"]
+
+    def dossier_evenement(self, identifiant: str) -> Path:
+        return self.dossier_donnees / "evenements" / identifiant
+
+    def filtres_actifs(self) -> list[str]:
+        choisis = self.profil["filtres_actifs"]
+        # « Original » est toujours proposé.
+        return [f for f in images.FILTRES if choisis is None or f == "aucun" or f in choisis]
 
     def impressions_restantes(self) -> int | None:
-        limite = self.reglages["limite_impressions"]
+        limite = self.profil["limite_impressions"]
         if not limite:
             return None
         return max(0, limite - self.base.total_impressions(self.evenement))
 
     def etat(self) -> dict:
-        r = self.reglages
+        r = self.profil
         return {
-            "evenement": r["evenement"]["nom"],
+            "evenement": self.base.evenement(self.evenement)["nom"],
             "compte_a_rebours": r["compte_a_rebours"],
             "apercu_miroir": r["apercu_miroir"],
             "delai_inactivite_resultat": r["delai_inactivite_resultat"],
@@ -89,13 +124,14 @@ class Cabine:
             "modes": [
                 {"id": m, **images.MODES[m]} for m in r["modes_actifs"] if m in images.MODES
             ],
-            "filtres": [{"id": k, "nom": v} for k, v in images.FILTRES.items()],
+            "filtres": [{"id": f, "nom": images.FILTRES[f]} for f in self.filtres_actifs()],
             "camera": {"nom": self.camera.nom, **self.camera.etat()},
             "imprimante": {"nom": self.imprimante.nom, **self.imprimante.etat()},
         }
 
     def cadres_du_mode(self, mode: str) -> list[dict]:
-        return [{"id": c["id"], "nom": c["nom"]} for c in cadres.lister(self.dossier_cadres, mode)]
+        actifs = self.profil["cadres_actifs"]
+        return [{"id": c["id"], "nom": c["nom"]} for c in cadres.lister(self.dossier_cadres, mode, actifs)]
 
     # --- Séance -------------------------------------------------------------
 
@@ -105,7 +141,7 @@ class Cabine:
         return self._seance
 
     def nouvelle_seance(self, mode: str) -> Seance:
-        if mode not in self.reglages["modes_actifs"] or mode not in images.MODES:
+        if mode not in self.profil["modes_actifs"] or mode not in images.MODES:
             raise ErreurCabine("Ce mode photo n'est pas disponible.")
         with self._verrou:
             # Une séance abandonnée sans choix du client est gardée, comme « Terminer ».
@@ -152,10 +188,11 @@ class Cabine:
     def _composer(self, seance: Seance, filtre: str, cadre_id: str | None, pleine_resolution: bool, largeur: int = 0) -> Image.Image:
         if not seance.complete:
             raise ErreurCabine("La photo n'est pas encore terminée.")
-        if filtre not in images.FILTRES:
+        profil = self.profil
+        if filtre not in self.filtres_actifs():
             raise ErreurCabine("Filtre inconnu.")
         try:
-            cadre = cadres.trouver(self.dossier_cadres, seance.mode, cadre_id)
+            cadre = cadres.trouver(self.dossier_cadres, seance.mode, cadre_id, profil["cadres_actifs"])
         except ValueError as erreur:
             raise ErreurCabine("Cadre introuvable.") from erreur
 
@@ -170,7 +207,7 @@ class Cabine:
             sources = seance.apercus
             largeur = max(80, min(largeur, format_final[0]))
             taille = (largeur, round(largeur * format_final[1] / format_final[0]))
-        return images.composer(sources, seance.mode, filtre, cadre, self.reglages["ajustements"], taille)
+        return images.composer(sources, seance.mode, filtre, cadre, profil["ajustements"], taille)
 
     def rendu(self, seance_id: str, filtre: str, cadre_id: str | None, largeur: int) -> bytes:
         seance = self._obtenir(seance_id)
@@ -183,7 +220,7 @@ class Cabine:
             if seance.photo_id is not None:
                 return seance
             finale = self._composer(seance, filtre, cadre_id, True)
-            dossier = self.dossier_donnees / "evenements" / self.evenement / "photos"
+            dossier = self.dossier_evenement(self.evenement) / "photos"
             dossier.mkdir(parents=True, exist_ok=True)
             fichier = dossier / f"{time.strftime('%Y%m%d-%H%M%S')}_{seance.id[:6]}.jpg"
             finale.save(fichier, "JPEG", quality=95, dpi=(300, 300))
@@ -202,7 +239,7 @@ class Cabine:
     def imprimer(self, seance_id: str, filtre: str, cadre_id: str | None, copies: int) -> int | None:
         with self._verrou:
             seance = self._obtenir(seance_id)
-            if not 1 <= copies <= self.reglages["copies_max_par_photo"]:
+            if not 1 <= copies <= self.profil["copies_max_par_photo"]:
                 raise ErreurCabine("Nombre de copies non autorisé.")
             restantes = self.impressions_restantes()
             if restantes is not None and copies > restantes:

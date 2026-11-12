@@ -46,6 +46,9 @@ h1 { font-size: 8vh; font-weight: 700; margin: 1.5vh 0 1vh; text-align: center; 
 #ecran-accueil {
   background: radial-gradient(ellipse at 50% 0%, #2c2420 0%, var(--fond) 70%);
 }
+/* Zone invisible : appui long de 3 s pour ouvrir l'administration */
+.acces-admin { position: absolute; top: 0; left: 0; width: max(14vh, 80px); height: max(14vh, 80px); }
+
 .modes { display: flex; gap: 4vw; margin-top: 6vh; }
 .mode {
   width: 34vh; height: 36vh;
