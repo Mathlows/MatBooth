@@ -26,6 +26,9 @@ class Camera:
         """Prend une photo en pleine résolution et l'enregistre dans destination."""
         raise NotImplementedError
 
+    def configurer(self, reglages: dict) -> None:
+        """Applique les réglages choisis dans l'administration (iso_apercu, iso_prise)."""
+
     def fermer(self) -> None:
         pass
 

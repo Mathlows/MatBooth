@@ -4,14 +4,17 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import config
+from .admin import creer_routeur
 from .cabine import Cabine, ErreurCabine
+from .gestion import Gestion
 from .materiel.camera import creer_camera
 from .materiel.imprimante import creer_imprimante
 
@@ -45,6 +48,7 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
             )
         else:
             app.state.cabine = cabine
+        app.state.gestion = Gestion(app.state.cabine)
         yield
         app.state.cabine.camera.fermer()
 
@@ -54,12 +58,24 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
     async def erreur_cabine(_: Request, erreur: ErreurCabine):
         return JSONResponse({"erreur": str(erreur)}, status_code=400)
 
+    @app.exception_handler(HTTPException)
+    async def erreur_http(_: Request, erreur: HTTPException):
+        return JSONResponse({"erreur": str(erreur.detail)}, status_code=erreur.status_code)
+
+    @app.exception_handler(RequestValidationError)
+    async def erreur_validation(_: Request, erreur: RequestValidationError):
+        return JSONResponse({"erreur": "Valeur non valide.", "details": erreur.errors()}, status_code=422)
+
     def c(request: Request) -> Cabine:
         return request.app.state.cabine
 
     @app.get("/")
     def accueil():
         return FileResponse(config.DOSSIER_WEB / "index.html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/admin")
+    def page_admin():
+        return FileResponse(config.DOSSIER_WEB / "admin.html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/api/etat")
     def etat(request: Request):
@@ -123,5 +139,6 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
         c(request).supprimer(seance_id)
         return {"ok": True}
 
+    app.include_router(creer_routeur())
     app.mount("/static", StaticFiles(directory=config.DOSSIER_WEB), name="static")
     return app

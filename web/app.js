@@ -316,6 +316,19 @@ document.addEventListener("pointerdown", () => {
   if (minuteurInactivite) relancerInactivite();
 });
 document.addEventListener("contextmenu", (e) => e.preventDefault());
-if (new URLSearchParams(location.search).has("kiosque")) document.body.classList.add("kiosque");
+const KIOSQUE = new URLSearchParams(location.search).has("kiosque");
+if (KIOSQUE) document.body.classList.add("kiosque");
+
+// Accès caché à l'administration : appui long de 3 secondes en haut à gauche de l'accueil.
+(() => {
+  const zone = $("acces-admin");
+  let minuteur = null;
+  const annuler = () => clearTimeout(minuteur);
+  zone.addEventListener("pointerdown", () => {
+    annuler();
+    minuteur = setTimeout(() => (location.href = KIOSQUE ? "/admin?kiosque=1" : "/admin"), 3000);
+  });
+  for (const evenement of ["pointerup", "pointerleave", "pointercancel"]) zone.addEventListener(evenement, annuler);
+})();
 
 retourAccueil();
