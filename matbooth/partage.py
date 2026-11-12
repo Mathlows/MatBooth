@@ -59,7 +59,8 @@ def page_telechargement(evenement: str, jeton: str) -> str:
     """Petite page pour le téléphone du client : la photo et un bouton de téléchargement."""
     nom = html.escape(evenement)
     return f"""<!doctype html>
-<html lang="fr"><head><meta charset="utf-8">
+<html lang="fr" translate="no"><head><meta charset="utf-8">
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Votre photo – {nom}</title>
 <style>

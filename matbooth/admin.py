@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Reque
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from . import systeme
 from .cabine import ErreurCabine
 from .gestion import Gestion
 from .images import FILTRES
@@ -278,6 +279,16 @@ def creer_routeur() -> APIRouter:
     @protege.post("/smtp/essai")
     def essai_smtp(request: Request, donnees: EssaiEmail):
         g(request).essai_email(donnees.adresse)
+        return {"ok": True}
+
+    @protege.post("/systeme/{action}")
+    def action_systeme(action: str):
+        if action not in systeme.ACTIONS:
+            raise HTTPException(404, "Action inconnue.")
+        try:
+            systeme.lancer(action)
+        except systeme.ErreurSysteme as erreur:
+            raise ErreurCabine(str(erreur)) from erreur
         return {"ok": True}
 
     @protege.post("/pin")

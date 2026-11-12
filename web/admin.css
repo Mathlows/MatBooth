@@ -200,3 +200,5 @@ form > .champ:first-of-type { margin-top: 0; }
   .entete-actions { width: 100%; }
   .entete-actions .bouton { flex: 1; }
 }
+
+.actions-borne .bouton { width: auto; flex: 1 1 200px; }

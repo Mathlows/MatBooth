@@ -1,0 +1,27 @@
+# Serveur Matbooth (installé dans /etc/systemd/system par deploiement/installer.sh).
+# @RACINE@ et @UTILISATEUR@ sont remplacés à l'installation.
+[Unit]
+Description=Matbooth : serveur de la borne photo
+After=network.target cups.service
+Wants=cups.service
+# Toujours relancer, même après de nombreux plantages d'affilée.
+StartLimitIntervalSec=0
+
+[Service]
+User=@UTILISATEUR@
+# lp : lire l'état de l'imprimante DNP ; plugdev : accès USB à l'appareil photo
+SupplementaryGroups=lp plugdev
+WorkingDirectory=@RACINE@
+Environment=PYTHONUNBUFFERED=1
+Environment=MATBOOTH_CAMERA=gphoto2
+Environment=MATBOOTH_IMPRIMANTE=dnp
+# Réglages propres à cette borne (port, file d'impression…), facultatif.
+EnvironmentFile=-/etc/default/matbooth
+ExecStart=@RACINE@/.venv/bin/python -m matbooth
+Restart=always
+RestartSec=2
+# Laisse le temps de libérer proprement l'appareil photo.
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

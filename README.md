@@ -21,7 +21,7 @@ Matériel visé : Raspberry Pi 5, appareil photo Canon (via gphoto2), imprimante
 - [x] Étape 3 : imprimante DNP RX1HS (10x15, bandes 5x15, compteur, alertes)
 - [x] Étape 4 : administration (accès caché + code PIN, profils d'événement, cadres, réglages couleur, galerie)
 - [x] Étape 5 : envoi des photos (QR code, e-mail, clé USB), activable par l'admin
-- [ ] Étape 6 : mise en service (plein écran, démarrage automatique, surveillance)
+- [x] Étape 6 : mise en service (plein écran, démarrage automatique, surveillance)
 - [ ] Plus tard : choix de la langue
 
 ## Essayer
@@ -37,11 +37,50 @@ python3 -m venv .venv
 ```
 
 Puis ouvrir <http://localhost:8000> dans le navigateur.
-Sur la borne, ajouter `?kiosque=1` à l'adresse pour masquer le curseur de la souris.
+Sur la borne, ajouter `?kiosque=1` à l'adresse pour masquer le curseur de la souris
+(c'est ce que fait la mise en service ci-dessous).
+
+## Mise en service sur la borne
+
+Une seule commande installe tout (à relancer sans risque après une mise à jour du code) :
+
+```bash
+cd ~/matbooth
+sudo ./deploiement/installer.sh
+sudo reboot
+```
+
+Au démarrage, sans clavier ni souris :
+
+| Élément | Rôle |
+|---|---|
+| `matbooth.service` (système) | Le serveur, avec l'appareil Canon et l'imprimante DNP. Relancé en 2 s s'il plante. |
+| `matbooth-surveillance.timer` (système) | Chaque minute, vérifie que le serveur répond ; s'il est bloqué, le relance (en moins d'une minute). |
+| `matbooth-ecran.service` (utilisateur) | Chromium en plein écran sur `http://localhost:8000/?kiosque=1`, relancé s'il se ferme ou plante. |
+| `matbooth-ecran-surveillance.timer` (utilisateur) | Si la page plante (« Aïe aïe aïe ») ou se fige, relance l'écran (en moins d'une minute). |
+
+Le script installe aussi les paquets (gphoto2, Gutenprint), l'environnement Python, la file d'impression DNP
+si l'imprimante est branchée, désactive la mise en veille de l'écran, et autorise l'administration à
+redémarrer ou éteindre la borne.
+
+**Dans l'administration, onglet Réglages › Borne** : quitter le plein écran (retour au bureau, pour la
+maintenance), relancer l'écran de la borne, redémarrer, **éteindre** (à faire avant de couper le courant :
+une coupure brutale peut abîmer la carte mémoire). Depuis le bureau, le menu propose aussi « Borne photo ».
+
+Pour suivre ce qui se passe :
+
+```bash
+journalctl -u matbooth -f                  # serveur (photos, impressions, e-mails, clé USB)
+journalctl --user -u matbooth-ecran -f     # écran
+sudo systemctl restart matbooth            # relancer le serveur
+```
+
+Réglages propres à la borne (port, type d'appareil…) : `/etc/default/matbooth`, puis `sudo systemctl restart matbooth`.
 
 ## Administration
 
 - **Sur la borne** : appui long de 3 secondes dans le coin en haut à gauche de l'écran d'accueil.
+  Les champs de texte (nom d'événement, réglages e-mail) se remplissent plus facilement depuis un téléphone.
 - **Depuis un téléphone** sur le même réseau Wi-Fi : `http://<adresse-du-pi>:8000/admin`.
 
 Code par défaut : **1234** (à changer dans l'onglet Réglages ; 5 erreurs bloquent l'accès 1 minute).

@@ -149,6 +149,13 @@ class Cabine:
             },
         }
 
+    def repond(self, delai: float = 10) -> bool:
+        """Faux si la cabine reste occupée anormalement longtemps (blocage)."""
+        if not self._verrou.acquire(timeout=delai):
+            return False
+        self._verrou.release()
+        return True
+
     def photo_en_cours(self) -> int | None:
         """Photo déjà enregistrée mais dont le client peut encore décider la suppression."""
         seance = self._seance

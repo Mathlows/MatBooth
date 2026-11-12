@@ -476,7 +476,19 @@ document.addEventListener("pointerdown", () => {
 });
 document.addEventListener("contextmenu", (e) => e.preventDefault());
 const KIOSQUE = new URLSearchParams(location.search).has("kiosque");
-if (KIOSQUE) document.body.classList.add("kiosque");
+if (KIOSQUE) {
+  document.body.classList.add("kiosque");
+  // Demande au système de ne pas mettre l'écran en veille tant que la borne est affichée.
+  const garderEveille = () => navigator.wakeLock?.request("screen").catch(() => {});
+  garderEveille();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") garderEveille();
+  });
+  // Signe de vie pour la surveillance de l'écran (un onglet planté se tait et l'écran est relancé).
+  const battement = () => fetch("/api/ecran/battement", { method: "POST" }).catch(() => {});
+  battement();
+  setInterval(battement, 10000);
+}
 
 // Accès caché à l'administration : appui long de 3 secondes en haut à gauche de l'accueil.
 (() => {

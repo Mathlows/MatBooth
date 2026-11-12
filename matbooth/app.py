@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -69,6 +70,8 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
         app.state.cabine.imprimante.fermer()
 
     app = FastAPI(title="Matbooth", lifespan=cycle_de_vie)
+    app.state.demarre_le = time.monotonic()
+    app.state.battement = None  # dernier signe de vie de l'écran de la borne
 
     @app.exception_handler(ErreurCabine)
     async def erreur_cabine(_: Request, erreur: ErreurCabine):
@@ -88,6 +91,29 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
     @app.get("/")
     def accueil():
         return FileResponse(config.DOSSIER_WEB / "index.html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/api/sante")
+    def sante(request: Request):
+        """Pour la surveillance : répond seulement si le serveur et la cabine ne sont pas bloqués."""
+        if not c(request).repond():
+            return JSONResponse({"ok": False, "erreur": "Cabine bloquée"}, status_code=503)
+        return {"ok": True}
+
+    # Signe de vie de la page affichée sur la borne (voir deploiement/surveiller-ecran.sh) :
+    # si l'onglet plante (« Aïe, aïe, aïe »), la page se tait et l'écran est relancé.
+    @app.post("/api/ecran/battement")
+    def battement(request: Request):
+        request.app.state.battement = time.monotonic()
+        return {"ok": True}
+
+    @app.get("/api/ecran")
+    def etat_ecran(request: Request):
+        maintenant = time.monotonic()
+        dernier = request.app.state.battement
+        return {
+            "age": None if dernier is None else round(maintenant - dernier, 1),
+            "depuis_demarrage": round(maintenant - request.app.state.demarre_le, 1),
+        }
 
     @app.get("/favicon.ico")
     def favicon():

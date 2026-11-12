@@ -1,0 +1,8 @@
+# Relance l'écran si la page de la borne ne donne plus signe de vie (voir surveiller-ecran.sh).
+[Unit]
+Description=Matbooth : surveillance de l'écran de la borne
+
+[Service]
+Type=oneshot
+EnvironmentFile=-%h/.config/matbooth-ecran.env
+ExecStart=@RACINE@/deploiement/surveiller-ecran.sh

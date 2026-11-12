@@ -1,0 +1,8 @@
+# Vérifie que le serveur Matbooth répond ; le relance s'il est bloqué (voir surveiller.sh).
+[Unit]
+Description=Matbooth : surveillance du serveur
+After=matbooth.service
+
+[Service]
+Type=oneshot
+ExecStart=@RACINE@/deploiement/surveiller.sh

@@ -565,6 +565,21 @@ $("btn-essai-smtp").onclick = () => essayer(async () => {
   await chargerEnvoi();
 });
 
+const QUESTIONS_SYSTEME = {
+  bureau: ["Quitter le plein écran ? La borne affichera le bureau jusqu'au prochain démarrage.", "Retour au bureau…"],
+  ecran: [null, "L'écran de la borne se relance…"],
+  redemarrer: ["Redémarrer la borne ? Elle sera indisponible environ une minute.", "La borne redémarre…"],
+  eteindre: ["Éteindre la borne ? Attendez que l'écran soit noir avant de couper le courant.", "La borne s'éteint…"],
+};
+document.querySelectorAll("[data-systeme]").forEach((b) => {
+  b.onclick = () => essayer(async () => {
+    const [question, annonce] = QUESTIONS_SYSTEME[b.dataset.systeme];
+    if (question && !confirmer(question)) return;
+    await envoyer(`/api/admin/systeme/${b.dataset.systeme}`);
+    message(annonce);
+  });
+});
+
 $("form-pin").onsubmit = (e) => {
   e.preventDefault();
   essayer(async () => {
@@ -582,6 +597,10 @@ $("btn-deconnexion").onclick = () => deconnecter();
 
 if (KIOSQUE) {
   document.body.classList.add("kiosque");
+  // Signe de vie pour la surveillance de l'écran (un onglet planté se tait et l'écran est relancé).
+  const battement = () => fetch("/api/ecran/battement", { method: "POST" }).catch(() => {});
+  battement();
+  setInterval(battement, 10000);
   // Sur la borne, on ne reste pas bloqué dans l'administration si on l'oublie ouverte.
   let minuteur = setTimeout(retourBorne, RETOUR_AUTO_KIOSQUE);
   document.addEventListener("pointerdown", () => {

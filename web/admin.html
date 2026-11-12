@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" translate="no">
 <head>
   <meta charset="utf-8">
+  <meta name="google" content="notranslate">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Matbooth · Administration</title>
   <link rel="stylesheet" href="/static/admin.css">
@@ -264,6 +265,18 @@
             <button id="btn-essai-smtp" type="button" class="bouton">Envoyer un e-mail de test</button>
           </div>
         </form>
+
+        <div class="carte">
+          <h2>Borne</h2>
+          <p class="doux petit">Éteignez toujours la borne avec ce bouton avant de couper le courant :
+            une coupure brutale peut abîmer la carte mémoire.</p>
+          <div class="ligne-form actions-borne">
+            <button type="button" class="bouton" data-systeme="bureau">Quitter le plein écran</button>
+            <button type="button" class="bouton" data-systeme="ecran">Relancer l'écran de la borne</button>
+            <button type="button" class="bouton" data-systeme="redemarrer">Redémarrer</button>
+            <button type="button" class="bouton danger" data-systeme="eteindre">Éteindre</button>
+          </div>
+        </div>
 
         <form id="form-pin" class="carte">
           <h2>Code d'accès</h2>
