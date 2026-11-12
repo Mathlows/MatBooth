@@ -173,12 +173,26 @@ async function chargerTableau() {
   $("chiffres").replaceChildren(...chiffres.map(([valeur, libelle]) =>
     el("div", { class: "chiffre" }, el("div", { class: "valeur" }, String(valeur)), el("div", { class: "libelle" }, libelle))
   ));
-  $("materiel").replaceChildren(...[["Appareil photo", t.camera], ["Imprimante", t.imprimante]].map(([titre, m]) =>
-    el("div", { class: "carte etat-materiel" },
-      el("span", { class: `voyant ${m.ok ? "ok" : ""}` }),
-      el("div", {}, el("div", { class: "doux petit" }, titre), el("strong", {}, m.nom), el("div", { class: "doux" }, m.message))
-    )
-  ));
+  $("materiel").replaceChildren(...[["Appareil photo", t.camera], ["Imprimante", t.imprimante]].map(([titre, m]) => {
+    const alertes = m.alertes || [];
+    const details = [];
+    if (m.papier && m.papier.restant !== null) {
+      const part = m.papier.capacite ? Math.max(0, Math.min(1, m.papier.restant / m.papier.capacite)) : 0;
+      details.push(
+        el("div", { class: "doux petit" }, `Papier : ${m.papier.restant} / ${m.papier.capacite ?? "?"} tirages${m.papier.type ? ` (${m.papier.type})` : ""}`),
+        el("div", { class: "jauge" }, el("span", { style: `width: ${Math.round(part * 100)}%` }))
+      );
+    }
+    if (m.compteur !== null && m.compteur !== undefined) {
+      details.push(el("div", { class: "doux petit" }, `Compteur total de l'imprimante : ${m.compteur.toLocaleString("fr-FR")} tirages`));
+    }
+    for (const a of alertes) details.push(el("div", { class: `alerte-materiel ${a.niveau}` }, a.message));
+    const attention = m.ok && alertes.length > 0;
+    return el("div", { class: "carte etat-materiel" },
+      el("span", { class: `voyant ${m.ok ? (attention ? "attention" : "ok") : ""}` }),
+      el("div", { class: "etat-texte" }, el("div", { class: "doux petit" }, titre), el("strong", {}, m.nom), el("div", { class: "doux" }, m.message), ...details)
+    );
+  }));
 }
 
 // ---------- Événements ----------

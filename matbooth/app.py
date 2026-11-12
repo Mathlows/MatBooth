@@ -51,6 +51,7 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
         app.state.gestion = Gestion(app.state.cabine)
         yield
         app.state.cabine.camera.fermer()
+        app.state.cabine.imprimante.fermer()
 
     app = FastAPI(title="Matbooth", lifespan=cycle_de_vie)
 

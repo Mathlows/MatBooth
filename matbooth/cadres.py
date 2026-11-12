@@ -4,6 +4,7 @@ Organisation du dossier :
     cadres/            -> cadres proposés pour tous les modes
     cadres/unique/     -> cadres réservés à la photo unique
     cadres/collage4/   -> cadres réservés au collage 4 photos
+    cadres/bandes/     -> cadres des bandes 5x15 (format portrait, ils ne servent qu'à ce mode)
 """
 
 import io
@@ -13,16 +14,22 @@ from pathlib import Path
 
 from PIL import Image
 
-from .images import MODES
+from .images import MODES, taille_mode
 
-PORTEES = {"tous": "Tous les modes", **{m: infos["nom"] for m, infos in MODES.items()}}
+PORTEES = {"tous": "Tous les modes 10x15", **{m: infos["nom"] for m, infos in MODES.items()}}
 
 
 def installer_exemples(dossier_cadres: Path, dossier_exemples: Path) -> None:
-    """Au tout premier lancement, copie quelques cadres d'exemple."""
-    if dossier_cadres.exists():
+    """Au tout premier lancement, copie quelques cadres d'exemple.
+
+    Ensuite, seul le dossier d'un mode apparu depuis (ex. bandes) reçoit ses exemples.
+    """
+    if not dossier_cadres.exists():
+        shutil.copytree(dossier_exemples, dossier_cadres)
         return
-    shutil.copytree(dossier_exemples, dossier_cadres)
+    for sous_dossier in dossier_exemples.iterdir():
+        if sous_dossier.is_dir() and not (dossier_cadres / sous_dossier.name).exists():
+            shutil.copytree(sous_dossier, dossier_cadres / sous_dossier.name)
 
 
 def _decrire(dossier_cadres: Path, fichier: Path, portee: str) -> dict:
@@ -42,7 +49,9 @@ def _pngs(dossier: Path) -> list[Path]:
 
 def lister(dossier_cadres: Path, mode: str, actifs: list[str] | None = None) -> list[dict]:
     """Cadres proposés pour un mode (et, si précisé, seulement ceux activés pour l'événement)."""
-    trouves = [_decrire(dossier_cadres, f, "tous") for f in _pngs(dossier_cadres)]
+    # Les cadres communs sont au format 10x15 paysage : ils ne vont pas sur une bande 5x15.
+    communs = [] if MODES.get(mode, {}).get("bande") else _pngs(dossier_cadres)
+    trouves = [_decrire(dossier_cadres, f, "tous") for f in communs]
     trouves += [_decrire(dossier_cadres, f, mode) for f in _pngs(dossier_cadres / mode)]
     if actifs is not None:
         trouves = [c for c in trouves if c["id"] in actifs]
@@ -85,6 +94,8 @@ def ajouter(dossier_cadres: Path, nom_fichier: str, contenu: bytes, portee: str,
     if image.format != "PNG":
         raise ValueError("Le cadre doit être une image PNG.")
 
+    if portee in MODES:
+        taille = taille_mode(portee, taille)
     avertissements = []
     if "A" not in image.getbands() and "transparency" not in image.info:
         avertissements.append("Cette image n'a pas de transparence : elle cachera entièrement la photo.")

@@ -92,6 +92,14 @@ main { padding: 20px; max-width: 1200px; margin: 0 auto; }
 .etat-materiel { display: flex; align-items: center; gap: 14px; }
 .voyant { width: 14px; height: 14px; border-radius: 50%; background: var(--danger); flex-shrink: 0; }
 .voyant.ok { background: var(--succes); }
+.voyant.attention { background: var(--accent); }
+.etat-materiel { align-items: flex-start; }
+.etat-materiel .voyant { margin-top: 4px; }
+.etat-texte { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.jauge { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.jauge span { display: block; height: 100%; background: var(--succes); }
+.alerte-materiel { font-weight: 700; color: var(--accent); }
+.alerte-materiel.erreur { color: var(--danger); }
 
 /* ---------- Formulaires ---------- */
 .ligne-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }

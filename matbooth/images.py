@@ -19,11 +19,30 @@ FILTRES = {
 MODES = {
     "unique": {"nom": "Photo unique", "prises": 1},
     "collage4": {"nom": "Collage 4 photos", "prises": 4},
+    # Bande 5x15 en portrait ; deux bandes identiques sont imprimées sur une feuille 10x15 puis découpées.
+    "bandes": {"nom": "Bandes photo", "prises": 4, "bande": True},
 }
 
 # Marges du collage, en proportion de la largeur du format final.
 _MARGE_COLLAGE = 0.022
 _ESPACE_COLLAGE = 0.017
+
+
+def taille_mode(mode: str, format_impression: tuple[int, int]) -> tuple[int, int]:
+    """Taille de la composition finale : la feuille 10x15, ou une bande 5x15 (demi-feuille, en portrait)."""
+    largeur, hauteur = format_impression
+    if MODES[mode].get("bande"):
+        return (min(largeur, hauteur) // 2, max(largeur, hauteur))
+    return (largeur, hauteur)
+
+
+def taille_rendu(taille_finale: tuple[int, int], largeur: int) -> tuple[int, int]:
+    """Taille d'un aperçu : tient dans un cadre de « largeur » de large (carré pour une bande)."""
+    l, h = taille_finale
+    largeur = max(80, min(largeur, l if l >= h else h))
+    if l >= h:
+        return (largeur, round(largeur * h / l))
+    return (max(1, round(largeur * l / h)), largeur)
 
 
 def zones(mode: str, taille: tuple[int, int]) -> list[tuple[int, int, int, int]]:
@@ -41,6 +60,13 @@ def zones(mode: str, taille: tuple[int, int]) -> list[tuple[int, int, int, int]]
             for ligne in range(2)
             for colonne in range(2)
         ]
+    if mode == "bandes":
+        # Quatre photos 3:2 empilées ; l'espace restant en bas accueille le logo ou le texte du cadre.
+        marge = round(largeur * 0.06)
+        espace = round(largeur * 0.04)
+        l = largeur - 2 * marge
+        h = round(l * 2 / 3)
+        return [(marge, marge + i * (h + espace), l, h) for i in range(4)]
     raise ValueError(f"Mode inconnu : {mode}")
 
 

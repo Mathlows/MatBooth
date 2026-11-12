@@ -19,7 +19,7 @@ from PIL import Image
 from . import cadres, images
 from .base import Base
 from .materiel.camera import Camera
-from .materiel.imprimante import Imprimante
+from .materiel.imprimante import ErreurImprimante, Imprimante
 from .reglages import PROFIL_DEFAUT, Reglages, fusion
 
 journal = logging.getLogger(__name__)
@@ -196,7 +196,7 @@ class Cabine:
         except ValueError as erreur:
             raise ErreurCabine("Cadre introuvable.") from erreur
 
-        format_final = tuple(self.reglages["format_impression"])
+        format_final = images.taille_mode(seance.mode, tuple(self.reglages["format_impression"]))
         if pleine_resolution:
             sources = []
             for chemin in seance.prises:
@@ -205,8 +205,7 @@ class Cabine:
             taille = format_final
         else:
             sources = seance.apercus
-            largeur = max(80, min(largeur, format_final[0]))
-            taille = (largeur, round(largeur * format_final[1] / format_final[0]))
+            taille = images.taille_rendu(format_final, largeur)
         return images.composer(sources, seance.mode, filtre, cadre, profil["ajustements"], taille)
 
     def rendu(self, seance_id: str, filtre: str, cadre_id: str | None, largeur: int) -> bytes:
@@ -246,7 +245,10 @@ class Cabine:
                 raise ErreurCabine("La limite d'impressions est atteinte.")
             seance = self.garder(seance_id, filtre, cadre_id)
             try:
-                self.imprimante.imprimer(seance.fichier_final, copies)
+                self.imprimante.imprimer(seance.fichier_final, copies, bandes=bool(images.MODES[seance.mode].get("bande")))
+            except ErreurImprimante as erreur:
+                journal.warning("Impression refusée : %s", erreur)
+                raise ErreurCabine(f"{erreur} Votre photo est bien enregistrée.") from erreur
             except Exception as erreur:
                 journal.exception("Échec de l'impression")
                 raise ErreurCabine("L'impression a échoué. Votre photo est bien enregistrée.") from erreur

@@ -26,7 +26,7 @@ DEFAUTS = {
 
 PROFIL_DEFAUT = {
     "compte_a_rebours": 3,
-    "modes_actifs": ["unique", "collage4"],
+    "modes_actifs": ["unique", "collage4", "bandes"],
     "filtres_actifs": None,  # None = tous
     "cadres_actifs": None,  # None = tous
     "copies_max_par_photo": 2,

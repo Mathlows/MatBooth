@@ -80,7 +80,7 @@ async function retourAccueil() {
     const bouton = document.createElement("button");
     bouton.className = "mode";
     const icone = document.createElement("div");
-    icone.className = `icone ${mode.prises === 4 ? "x4" : ""}`;
+    icone.className = `icone ${mode.bande ? "bande" : mode.prises === 4 ? "x4" : ""}`;
     for (let i = 0; i < mode.prises; i++) icone.appendChild(document.createElement("span"));
     const nom = document.createElement("span");
     nom.textContent = mode.nom;
@@ -209,6 +209,7 @@ function majImpression() {
   if (!etat.imprimante.ok) {
     btn.disabled = true;
     info.textContent = "Imprimante indisponible pour le moment.";
+    if (etat.imprimante.message) info.textContent += ` (${etat.imprimante.message})`;
   } else if (etat.impressions_restantes === 0) {
     btn.disabled = true;
     info.textContent = "Le nombre maximum d'impressions est atteint.";
