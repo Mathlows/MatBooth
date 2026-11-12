@@ -173,7 +173,7 @@ async function chargerTableau() {
   $("chiffres").replaceChildren(...chiffres.map(([valeur, libelle]) =>
     el("div", { class: "chiffre" }, el("div", { class: "valeur" }, String(valeur)), el("div", { class: "libelle" }, libelle))
   ));
-  const materiel = [["Appareil photo", t.camera], ["Imprimante", t.imprimante], ["E-mails", t.emails], ["Clé USB", t.usb]];
+  const materiel = [["Appareil photo", t.camera], ["Imprimante", t.imprimante], ["Wi-Fi", t.wifi], ["E-mails", t.emails], ["Clé USB", t.usb]];
   $("materiel").replaceChildren(...materiel.filter(([, m]) => m).map(([titre, m]) => {
     const alertes = m.alertes || [];
     const details = [];
@@ -478,6 +478,12 @@ $("form-camera").onsubmit = (e) => {
 
 async function chargerEnvoi() {
   const r = await api("/api/admin/envoi");
+  const w = r.wifi_borne;
+  $("form-wifi-borne").hidden = !w.disponible;
+  $("wifi-borne-actif").checked = w.actif;
+  $("wifi-borne-nom").value = w.nom;
+  $("wifi-borne-mdp").value = w.mot_de_passe;
+  $("etat-wifi-borne").textContent = w.actif ? `Actif · adresse de la borne : ${w.adresse}` : "Désactivé";
   $("reseau-wifi-nom").value = r.reseau.wifi_nom;
   $("reseau-wifi-mdp").value = r.reseau.wifi_mot_de_passe;
   $("reseau-adresse").value = r.reseau.adresse;
@@ -512,6 +518,19 @@ document.querySelectorAll("[data-prereglage]").forEach((b) => {
 $("smtp-securite").onchange = () => {
   const port = { starttls: 587, ssl: 465 }[$("smtp-securite").value];
   if (port) $("smtp-port").value = port;
+};
+
+$("form-wifi-borne").onsubmit = (e) => {
+  e.preventDefault();
+  essayer(async () => {
+    const actif = $("wifi-borne-actif").checked;
+    const mdp = $("wifi-borne-mdp").value;
+    if (mdp && mdp.length < 8) throw new Error("Mot de passe : 8 caractères minimum (ou vide pour un réseau ouvert).");
+    if (actif && !confirmer("Activer le Wi-Fi de la borne ? Elle n'aura plus internet par Wi-Fi pendant ce temps.")) return;
+    await envoyer("/api/admin/wifi-borne", { actif, nom: $("wifi-borne-nom").value, mot_de_passe: mdp }, "PUT");
+    message(actif ? "Le Wi-Fi de la borne démarre (quelques secondes)…" : "Retour au Wi-Fi habituel (quelques secondes)…");
+    $("etat-wifi-borne").textContent = actif ? "Démarrage…" : "Arrêt…";
+  });
 };
 
 $("form-reseau").onsubmit = (e) => {

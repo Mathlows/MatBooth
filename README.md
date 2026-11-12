@@ -98,9 +98,14 @@ Code par défaut : **1234** (à changer dans l'onglet Réglages ; 5 erreurs bloq
 Trois options, à activer **pour chaque événement** (onglet Événements, « Envoi des photos aux clients ») :
 
 - **QR code** : sur l'écran de résultat, le client scanne un QR code et télécharge sa photo depuis la borne,
-  par le réseau local (pas besoin d'internet). Son téléphone doit être sur le **même Wi-Fi que la borne** :
-  indiquez le nom et le mot de passe du Wi-Fi dans Réglages › Réseau, un second QR code permet alors de s'y
-  connecter en un geste. Chaque photo a son propre lien secret.
+  par le réseau local (pas besoin d'internet). Chaque photo a son propre lien secret. Son téléphone doit être
+  sur le même réseau que la borne, et un premier QR code permet de rejoindre ce réseau en un geste :
+  - **Wi-Fi de la borne (recommandé)** : Réglages › Wi-Fi de la borne. La borne crée son propre réseau
+    (« Photobooth », ouvert ou avec mot de passe) et y a l'adresse 10.42.0.1. Fonctionne partout. Le Pi n'ayant
+    qu'une puce Wi-Fi, il n'a plus internet par Wi-Fi pendant ce temps : les e-mails partent quand on le
+    désactive (ou immédiatement avec un câble Ethernet). Il reste actif après un redémarrage.
+  - **Wi-Fi existant** (box, salle) : indiquez-le dans Réglages › Wi-Fi existant. Attention, beaucoup de box et
+    de Wi-Fi de salles isolent les appareils entre eux : le téléphone ne peut alors pas joindre la borne.
 - **E-mail** : le client tape son adresse sur un clavier à l'écran. Les e-mails attendent dans la borne et partent
   **dès qu'internet est disponible** (nouvel essai de plus en plus espacé, jusqu'à toutes les 30 minutes ;
   une adresse refusée par le serveur est abandonnée). Réglages › E-mail : serveur SMTP, identifiant, objet et

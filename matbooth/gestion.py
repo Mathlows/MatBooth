@@ -13,6 +13,8 @@ from PIL import Image, ImageOps
 from . import cadres, images, partage
 from .cabine import Cabine, ErreurCabine
 from .reglages import PROFIL_DEFAUT, fusion
+from .wifi import ErreurWifi
+from .wifi import verifier_reglages as verifier_reglages_wifi
 
 _TAILLE_MINIATURE = 480
 
@@ -44,6 +46,7 @@ class Gestion:
             "imprimante": {"nom": c.imprimante.nom, **c.imprimante.etat()},
             "emails": c.emails.etat(),
             "usb": c.usb.etat(),
+            "wifi": self.etat_wifi_borne(),
             "disque_libre_go": round(disque.free / 1e9, 1),
             "pin_par_defaut": c.reglages.pin_par_defaut,
         }
@@ -235,9 +238,39 @@ class Gestion:
         self.cabine.reglages.modifier({"camera": valeurs})
         self.cabine.appliquer_reglages_camera()
 
+    def etat_wifi_borne(self) -> dict | None:
+        etat = self.cabine.wifi.etat()
+        if not etat["disponible"]:
+            return None
+        nom = self.cabine.reglages["wifi_borne"]["nom"]
+        if etat["actif"]:
+            appareils = self.cabine.wifi.appareils_connectes()
+            message = f"Actif : « {nom} »" + ("" if appareils is None else f" · {appareils} appareil(s) connecté(s)")
+            alertes = [{"niveau": "attention", "message": "Pas d'internet par Wi-Fi pendant ce temps : les e-mails attendent"}]
+        else:
+            message, alertes = "Désactivé (la borne utilise le Wi-Fi habituel)", []
+        return {"nom": "Wi-Fi de la borne", "ok": True, "message": message, "alertes": alertes}
+
+    def modifier_wifi_borne(self, actif: bool, nom: str, mot_de_passe: str) -> None:
+        nom = nom.strip()
+        try:
+            verifier_reglages_wifi(nom, mot_de_passe)
+            self.cabine.reglages.modifier({"wifi_borne": {"nom": nom, "mot_de_passe": mot_de_passe}})
+            if actif:
+                self.cabine.wifi.activer(nom, mot_de_passe)
+            else:
+                self.cabine.wifi.desactiver()
+                # De retour sur un réseau avec internet : les e-mails en attente repartent.
+                self.base.relancer_envois()
+        except ErreurWifi as erreur:
+            raise ErreurCabine(str(erreur)) from erreur
+
     def reglages_envoi(self) -> dict:
         smtp = self.cabine.reglages["smtp"]
+        wifi = self.cabine.wifi.etat()
         return {
+            "wifi_borne": {**self.cabine.reglages["wifi_borne"], "actif": wifi["actif"], "disponible": wifi["disponible"],
+                           "adresse": wifi["adresse"]},
             "reseau": self.cabine.reglages["reseau"],
             "adresse_detectee": partage.adresse_locale(),
             # Le mot de passe ne quitte jamais la borne : on dit seulement s'il existe.

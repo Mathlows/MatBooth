@@ -25,6 +25,9 @@ DEFAUTS = {
     # Affiché avec le QR code : le téléphone du client doit être sur le même réseau que la borne.
     # adresse vide = adresse détectée automatiquement.
     "reseau": {"adresse": "", "wifi_nom": "", "wifi_mot_de_passe": ""},
+    # Wi-Fi créé par la borne elle-même (actif ou non : c'est NetworkManager qui le sait).
+    # Mot de passe vide = réseau ouvert.
+    "wifi_borne": {"nom": "Photobooth", "mot_de_passe": ""},
     # Serveur d'envoi des e-mails. securite : "starttls" (port 587), "ssl" (465) ou "aucune".
     "smtp": {
         "hote": "",

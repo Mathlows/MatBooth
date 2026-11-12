@@ -42,7 +42,17 @@ def adresse_locale() -> str:
             s.connect(("192.0.2.1", 9))  # adresse de documentation : sert juste à choisir l'interface
             return s.getsockname()[0]
     except OSError:
-        return "127.0.0.1"
+        pass
+    # Pas de route vers l'extérieur (ex. Wi-Fi de la borne) : première adresse IPv4 de la machine.
+    try:
+        import subprocess
+
+        for adresse in subprocess.run(["hostname", "-I"], capture_output=True, text=True, timeout=5).stdout.split():
+            if "." in adresse and not adresse.startswith("127."):
+                return adresse
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return "127.0.0.1"
 
 
 def qr_svg(texte: str) -> str:

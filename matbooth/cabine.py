@@ -18,6 +18,7 @@ from pathlib import Path
 from PIL import Image
 
 from . import cadres, images, partage
+from .wifi import WifiBorne
 from .base import Base
 from .materiel.camera import Camera
 from .materiel.imprimante import ErreurImprimante, Imprimante
@@ -71,6 +72,7 @@ class Cabine:
         self.appliquer_reglages_camera()
         self.emails = partage.FileEmails(self)
         self.usb = partage.SauvegardeUSB(self)
+        self.wifi = WifiBorne()
 
     def demarrer_services(self) -> None:
         """Envoi des e-mails et sauvegarde USB, en tâche de fond."""

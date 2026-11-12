@@ -191,10 +191,37 @@
           </div>
         </form>
 
+        <form id="form-wifi-borne" class="carte">
+          <h2>Wi-Fi de la borne</h2>
+          <p class="doux petit">La borne crée son propre réseau Wi-Fi : les invités le rejoignent avec le premier
+            QR code, puis ouvrent leur photo avec le second. Fonctionne partout, sans le Wi-Fi de la salle.
+            Il reste actif après un redémarrage, jusqu'à ce que vous le désactiviez.</p>
+          <p class="alerte petit">Pendant qu'il est actif, la borne n'a plus internet par Wi-Fi : les e-mails attendent
+            et partiront une fois le Wi-Fi de la borne désactivé (ou tout de suite avec un câble Ethernet).
+            Si vous administrez depuis un téléphone, rejoignez ensuite ce réseau et ouvrez http://10.42.0.1:8000/admin.</p>
+          <label class="interrupteur">
+            <input id="wifi-borne-actif" type="checkbox">
+            <span>Créer le Wi-Fi de la borne</span>
+          </label>
+          <div class="grille-champs">
+            <label class="champ">Nom du réseau
+              <input id="wifi-borne-nom" type="text" maxlength="32" autocomplete="off" required>
+            </label>
+            <label class="champ">Mot de passe (8 caractères minimum, vide = réseau ouvert)
+              <input id="wifi-borne-mdp" type="text" maxlength="63" autocomplete="off">
+            </label>
+          </div>
+          <div class="barre-enregistrer">
+            <button class="bouton principal">Enregistrer</button>
+            <span id="etat-wifi-borne" class="doux"></span>
+          </div>
+        </form>
+
         <form id="form-reseau" class="carte">
-          <h2>Réseau (QR code)</h2>
-          <p class="doux petit">Le téléphone du client doit être sur le même réseau Wi-Fi que la borne.
-            Si vous indiquez le Wi-Fi, un second QR code permet de s'y connecter en un geste.</p>
+          <h2>Ou Wi-Fi existant (QR code)</h2>
+          <p class="doux petit">Si le Wi-Fi de la borne est désactivé, le téléphone du client doit être sur le même
+            réseau que la borne. Si vous indiquez ce Wi-Fi, un second QR code permet de s'y connecter en un geste.
+            Certaines box isolent les appareils Wi-Fi entre eux : le QR code ne marche alors pas.</p>
           <div class="grille-champs">
             <label class="champ">Nom du Wi-Fi (facultatif)
               <input id="reseau-wifi-nom" type="text" maxlength="32" autocomplete="off">

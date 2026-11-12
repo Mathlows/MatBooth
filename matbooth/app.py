@@ -41,9 +41,12 @@ class ChoixEmail(ChoixFinal):
     adresse: str = Field(max_length=254)
 
 
-def url_borne(cabine: Cabine) -> str:
+def url_borne(cabine: Cabine, wifi_borne: dict | None = None) -> str:
     """Adresse de la borne vue depuis un téléphone du même réseau."""
-    adresse = cabine.reglages["reseau"]["adresse"].strip() or partage.adresse_locale()
+    if wifi_borne and wifi_borne["actif"]:
+        adresse = wifi_borne["adresse"]
+    else:
+        adresse = cabine.reglages["reseau"]["adresse"].strip() or partage.adresse_locale()
     if adresse.startswith("http://") or adresse.startswith("https://"):
         return adresse.rstrip("/")
     return f"http://{adresse}" + ("" if config.PORT == 80 else f":{config.PORT}")
@@ -184,15 +187,16 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
     def qr(request: Request, seance_id: str, choix: ChoixFinal):
         cabine = c(request)
         jeton = cabine.lien_telechargement(seance_id, choix.filtre, choix.cadre)
-        url = f"{url_borne(cabine)}/p/{jeton}"
-        reseau = cabine.reglages["reseau"]
+        wifi_borne = cabine.wifi.etat()
+        url = f"{url_borne(cabine, wifi_borne)}/p/{jeton}"
+        # Réseau à rejoindre : celui de la borne s'il est actif, sinon celui indiqué par le loueur.
+        if wifi_borne["actif"]:
+            nom, mot_de_passe = cabine.reglages["wifi_borne"]["nom"], cabine.reglages["wifi_borne"]["mot_de_passe"]
+        else:
+            nom, mot_de_passe = cabine.reglages["reseau"]["wifi_nom"].strip(), cabine.reglages["reseau"]["wifi_mot_de_passe"]
         wifi = None
-        if reseau["wifi_nom"].strip():
-            wifi = {
-                "nom": reseau["wifi_nom"].strip(),
-                "mot_de_passe": reseau["wifi_mot_de_passe"],
-                "qr": partage.qr_wifi_svg(reseau["wifi_nom"].strip(), reseau["wifi_mot_de_passe"]),
-            }
+        if nom:
+            wifi = {"nom": nom, "mot_de_passe": mot_de_passe, "qr": partage.qr_wifi_svg(nom, mot_de_passe)}
         return {"url": url, "qr": partage.qr_svg(url), "wifi": wifi}
 
     @app.post("/api/seances/{seance_id}/email")

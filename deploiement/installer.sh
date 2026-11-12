@@ -34,7 +34,7 @@ remplir() {  # remplace @RACINE@ et @UTILISATEUR@ dans un modèle
 etape() { echo; echo "==> $*"; }
 
 etape "Paquets système"
-apt-get install -y --no-install-recommends gphoto2 printer-driver-gutenprint cups curl python3-venv
+apt-get install -y --no-install-recommends gphoto2 printer-driver-gutenprint cups curl python3-venv iw
 
 etape "Environnement Python"
 if [ ! -x "${RACINE}/.venv/bin/python" ]; then
@@ -84,6 +84,18 @@ echo "${UTILISATEUR} ALL=(root) NOPASSWD: /usr/bin/systemctl reboot, /usr/bin/sy
 chmod 440 "${REGLE}.tmp"
 visudo -cf "${REGLE}.tmp" >/dev/null
 mv "${REGLE}.tmp" "${REGLE}"
+
+etape "Wi-Fi de la borne (piloté depuis l'administration)"
+# Le serveur tourne hors de la session du bureau : on l'autorise explicitement à piloter le Wi-Fi.
+cat > /etc/polkit-1/rules.d/50-matbooth.rules <<FIN
+// Matbooth : le serveur de la borne (compte ${UTILISATEUR}) peut créer / arrêter le Wi-Fi de la borne.
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") == 0 && subject.user == "${UTILISATEUR}") {
+        return polkit.Result.YES;
+    }
+});
+FIN
+chmod 644 /etc/polkit-1/rules.d/50-matbooth.rules
 
 etape "Écran toujours allumé"
 if command -v raspi-config >/dev/null; then
