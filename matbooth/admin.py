@@ -74,6 +74,12 @@ class Ajustements(BaseModel):
     saturation: float = Field(1.0, ge=0.0, le=2.0)
 
 
+class Partage(BaseModel):
+    qr: bool = False
+    email: bool = False
+    usb: bool = False
+
+
 class Profil(BaseModel):
     compte_a_rebours: int = Field(3, ge=1, le=10)
     modes_actifs: list[str]
@@ -84,6 +90,7 @@ class Profil(BaseModel):
     apercu_miroir: bool = True
     delai_inactivite_resultat: int = Field(90, ge=15, le=600)
     ajustements: Ajustements = Ajustements()
+    partage: Partage = Partage()
 
 
 class ModificationEvenement(BaseModel):
@@ -95,6 +102,29 @@ class ReglagesCamera(BaseModel):
     # None = garder le réglage fait sur l'appareil
     iso_apercu: str | None = Field(None, pattern=r"^(Auto|\d{2,6})$")
     iso_prise: str | None = Field(None, pattern=r"^(Auto|\d{2,6})$")
+
+
+class ReglagesReseau(BaseModel):
+    adresse: str = Field("", max_length=200)
+    wifi_nom: str = Field("", max_length=32)
+    wifi_mot_de_passe: str = Field("", max_length=63)
+
+
+class ReglagesSmtp(BaseModel):
+    hote: str = Field("", max_length=200)
+    port: int = Field(587, ge=1, le=65535)
+    securite: str = Field("starttls", pattern=r"^(starttls|ssl|aucune)$")
+    utilisateur: str = Field("", max_length=200)
+    # None = garder le mot de passe enregistré (il n'est jamais renvoyé au navigateur)
+    mot_de_passe: str | None = Field(None, max_length=200)
+    expediteur: str = Field("", max_length=254)
+    nom_expediteur: str = Field("", max_length=100)
+    sujet: str = Field("", max_length=200)
+    message: str = Field("", max_length=5000)
+
+
+class EssaiEmail(BaseModel):
+    adresse: str = Field(max_length=254)
 
 
 class ChangementPin(BaseModel):
@@ -229,6 +259,25 @@ def creer_routeur() -> APIRouter:
     @protege.put("/camera")
     def modifier_camera(request: Request, donnees: ReglagesCamera):
         g(request).modifier_reglages_camera(donnees.model_dump())
+        return {"ok": True}
+
+    @protege.get("/envoi")
+    def reglages_envoi(request: Request):
+        return g(request).reglages_envoi()
+
+    @protege.put("/reseau")
+    def modifier_reseau(request: Request, donnees: ReglagesReseau):
+        g(request).modifier_reseau(donnees.model_dump())
+        return {"ok": True}
+
+    @protege.put("/smtp")
+    def modifier_smtp(request: Request, donnees: ReglagesSmtp):
+        g(request).modifier_smtp(donnees.model_dump())
+        return {"ok": True}
+
+    @protege.post("/smtp/essai")
+    def essai_smtp(request: Request, donnees: EssaiEmail):
+        g(request).essai_email(donnees.adresse)
         return {"ok": True}
 
     @protege.post("/pin")

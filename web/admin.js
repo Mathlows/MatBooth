@@ -173,7 +173,8 @@ async function chargerTableau() {
   $("chiffres").replaceChildren(...chiffres.map(([valeur, libelle]) =>
     el("div", { class: "chiffre" }, el("div", { class: "valeur" }, String(valeur)), el("div", { class: "libelle" }, libelle))
   ));
-  $("materiel").replaceChildren(...[["Appareil photo", t.camera], ["Imprimante", t.imprimante]].map(([titre, m]) => {
+  const materiel = [["Appareil photo", t.camera], ["Imprimante", t.imprimante], ["E-mails", t.emails], ["Clé USB", t.usb]];
+  $("materiel").replaceChildren(...materiel.filter(([, m]) => m).map(([titre, m]) => {
     const alertes = m.alertes || [];
     const details = [];
     if (m.papier && m.papier.restant !== null) {
@@ -253,6 +254,7 @@ function remplirFormulaire(ev) {
   $("ev-limite").value = p.limite_impressions;
   $("ev-inactivite").value = p.delai_inactivite_resultat;
   $("ev-miroir").checked = p.apercu_miroir;
+  for (const cle of ["qr", "email", "usb"]) $(`ev-partage-${cle}`).checked = p.partage[cle];
 
   $("ev-modes").replaceChildren(...catalogue.modes.map((m) =>
     puce("checkbox", "mode", m.id, p.modes_actifs.includes(m.id), m.nom)
@@ -333,6 +335,7 @@ $("form-evenement").onsubmit = (e) => {
       filtres_actifs: filtres.length === catalogue.filtres.length - 1 ? null : ["aucun", ...filtres],
       cadres_actifs: cadres.length === cadresConnus.length ? null : cadres,
       ajustements: ajustements(),
+      partage: Object.fromEntries(["qr", "email", "usb"].map((c) => [c, $(`ev-partage-${c}`).checked])),
     };
     if (!profil.modes_actifs.length) throw new Error("Gardez au moins un mode photo.");
     await envoyer(`/api/admin/evenements/${encodeURIComponent(evenementEdite.id)}`, { nom: $("ev-nom").value, profil }, "PUT");
@@ -446,6 +449,7 @@ $("visionneuse-fermer").onclick = () => ($("visionneuse").hidden = true);
 // ---------- Réglages ----------
 
 async function chargerReglages() {
+  await chargerEnvoi();
   const camera = await api("/api/admin/camera");
   for (const [champ, cle] of [["iso-apercu", "iso_apercu"], ["iso-prise", "iso_prise"]]) {
     const valeurs = [...camera.valeurs_iso];
@@ -471,6 +475,95 @@ $("form-camera").onsubmit = (e) => {
     message("Réglages de l'appareil enregistrés.");
   });
 };
+
+async function chargerEnvoi() {
+  const r = await api("/api/admin/envoi");
+  $("reseau-wifi-nom").value = r.reseau.wifi_nom;
+  $("reseau-wifi-mdp").value = r.reseau.wifi_mot_de_passe;
+  $("reseau-adresse").value = r.reseau.adresse;
+  $("reseau-adresse").placeholder = `Détectée : ${r.adresse_detectee}`;
+  const s = r.smtp;
+  $("smtp-hote").value = s.hote;
+  $("smtp-port").value = s.port;
+  $("smtp-securite").value = s.securite;
+  $("smtp-utilisateur").value = s.utilisateur;
+  $("smtp-mdp").value = "";
+  $("smtp-mdp").placeholder = s.mot_de_passe_enregistre ? "Enregistré (laisser vide pour le garder)" : "";
+  $("smtp-expediteur").value = s.expediteur;
+  $("smtp-nom").value = s.nom_expediteur;
+  $("smtp-sujet").value = s.sujet;
+  $("smtp-message").value = s.message;
+}
+
+const PREREGLAGES_SMTP = {
+  gmail: ["smtp.gmail.com", 587, "starttls"],
+  outlook: ["smtp-mail.outlook.com", 587, "starttls"],
+  orange: ["smtp.orange.fr", 465, "ssl"],
+  ovh: ["ssl0.ovh.net", 465, "ssl"],
+};
+document.querySelectorAll("[data-prereglage]").forEach((b) => {
+  b.onclick = () => {
+    const [hote, port, securite] = PREREGLAGES_SMTP[b.dataset.prereglage];
+    $("smtp-hote").value = hote;
+    $("smtp-port").value = port;
+    $("smtp-securite").value = securite;
+  };
+});
+$("smtp-securite").onchange = () => {
+  const port = { starttls: 587, ssl: 465 }[$("smtp-securite").value];
+  if (port) $("smtp-port").value = port;
+};
+
+$("form-reseau").onsubmit = (e) => {
+  e.preventDefault();
+  essayer(async () => {
+    await envoyer("/api/admin/reseau", {
+      adresse: $("reseau-adresse").value,
+      wifi_nom: $("reseau-wifi-nom").value,
+      wifi_mot_de_passe: $("reseau-wifi-mdp").value,
+    }, "PUT");
+    message("Réglages réseau enregistrés.");
+  });
+};
+
+function valeursSmtp() {
+  return {
+    hote: $("smtp-hote").value,
+    port: parseInt($("smtp-port").value, 10) || 587,
+    securite: $("smtp-securite").value,
+    utilisateur: $("smtp-utilisateur").value,
+    mot_de_passe: $("smtp-mdp").value || null,
+    expediteur: $("smtp-expediteur").value,
+    nom_expediteur: $("smtp-nom").value,
+    sujet: $("smtp-sujet").value,
+    message: $("smtp-message").value,
+  };
+}
+
+$("form-smtp").onsubmit = (e) => {
+  e.preventDefault();
+  essayer(async () => {
+    await envoyer("/api/admin/smtp", valeursSmtp(), "PUT");
+    message("Réglages e-mail enregistrés.");
+    await chargerEnvoi();
+  });
+};
+
+$("btn-essai-smtp").onclick = () => essayer(async () => {
+  const adresse = $("smtp-essai-adresse").value.trim();
+  if (!adresse) throw new Error("Indiquez une adresse pour l'essai.");
+  // On enregistre d'abord, pour tester exactement ce qui est affiché.
+  await envoyer("/api/admin/smtp", valeursSmtp(), "PUT");
+  $("etat-smtp").textContent = "Envoi de l'essai…";
+  try {
+    await envoyer("/api/admin/smtp/essai", { adresse });
+    $("etat-smtp").textContent = `E-mail de test envoyé à ${adresse} ✓`;
+  } catch (erreur) {
+    $("etat-smtp").textContent = "";
+    throw erreur;
+  }
+  await chargerEnvoi();
+});
 
 $("form-pin").onsubmit = (e) => {
   e.preventDefault();

@@ -9,8 +9,10 @@ Matériel visé : Raspberry Pi 5, appareil photo Canon (via gphoto2), imprimante
    chaque impression donne deux bandes identiques, découpées par l'imprimante).
 2. Un compte à rebours de 3 secondes s'affiche sur l'aperçu en direct, puis la photo est prise.
 3. Il voit sa photo et choisit un **filtre** et un **cadre**.
-4. Il peut **imprimer** (nombre d'exemplaires limité), **terminer sans imprimer**, **recommencer** ou **supprimer**.
-   Une photo supprimée n'est conservée nulle part. S'il s'en va sans rien choisir, la photo est gardée.
+4. Selon l'événement, il peut **récupérer sa photo sur son téléphone** (QR code) ou **la recevoir par e-mail**.
+5. Il peut **imprimer** (nombre d'exemplaires limité), **terminer sans imprimer**, **recommencer** ou **supprimer**.
+   Une photo supprimée n'est conservée nulle part (même si elle avait déjà été partagée : lien et e-mails
+   en attente disparaissent avec elle). S'il s'en va sans rien choisir, la photo est gardée.
 
 ## Avancement
 
@@ -18,7 +20,7 @@ Matériel visé : Raspberry Pi 5, appareil photo Canon (via gphoto2), imprimante
 - [x] Étape 2 : appareil Canon (aperçu en direct, ISO aperçu / prise de vue, reconnexion)
 - [x] Étape 3 : imprimante DNP RX1HS (10x15, bandes 5x15, compteur, alertes)
 - [x] Étape 4 : administration (accès caché + code PIN, profils d'événement, cadres, réglages couleur, galerie)
-- [ ] Étape 5 : envoi des photos (QR code, e-mail, clé USB), activable par l'admin
+- [x] Étape 5 : envoi des photos (QR code, e-mail, clé USB), activable par l'admin
 - [ ] Étape 6 : mise en service (plein écran, démarrage automatique, surveillance)
 - [ ] Plus tard : choix de la langue
 
@@ -50,7 +52,29 @@ Code par défaut : **1234** (à changer dans l'onglet Réglages ; 5 erreurs bloq
 | Événements | Créer, activer, supprimer un événement ; pour chacun : nom affiché, modes, compte à rebours, exemplaires max par photo, limite d'impressions, filtres et cadres proposés, couleurs (luminosité, contraste, saturation) avec aperçu en direct |
 | Cadres | Ajouter un PNG (pour tous les modes ou un seul), supprimer |
 | Photos | Galerie par événement, photo en grand, téléchargement (une photo ou tout en ZIP), suppression |
-| Réglages | ISO de l'aperçu et de la prise de vue, code d'accès |
+| Réglages | ISO de l'aperçu et de la prise de vue, réseau (QR code), serveur e-mail, code d'accès |
+
+## Envoi des photos aux clients
+
+Trois options, à activer **pour chaque événement** (onglet Événements, « Envoi des photos aux clients ») :
+
+- **QR code** : sur l'écran de résultat, le client scanne un QR code et télécharge sa photo depuis la borne,
+  par le réseau local (pas besoin d'internet). Son téléphone doit être sur le **même Wi-Fi que la borne** :
+  indiquez le nom et le mot de passe du Wi-Fi dans Réglages › Réseau, un second QR code permet alors de s'y
+  connecter en un geste. Chaque photo a son propre lien secret.
+- **E-mail** : le client tape son adresse sur un clavier à l'écran. Les e-mails attendent dans la borne et partent
+  **dès qu'internet est disponible** (nouvel essai de plus en plus espacé, jusqu'à toutes les 30 minutes ;
+  une adresse refusée par le serveur est abandonnée). Réglages › E-mail : serveur SMTP, identifiant, objet et
+  message (`{evenement}` est remplacé par le nom de l'événement), et un bouton d'e-mail de test.
+  Avec Gmail, il faut un [mot de passe d'application](https://myaccount.google.com/apppasswords).
+  Le bouton n'est proposé aux clients que si le serveur est réglé.
+- **Clé USB** : les photos gardées sont copiées toutes les 10 secondes sur toute clé USB branchée, dans
+  `Matbooth/<événement>/`. On peut la brancher en cours de route : ce qui manque est copié. Chaque fichier
+  est écrit sur la clé immédiatement, on peut la retirer sans « éjecter » (en évitant de le faire pendant une copie).
+
+Une photo n'est envoyée par e-mail ou copiée sur clé USB **qu'une fois la séance du client terminée** : tant qu'il
+est devant l'écran, il peut encore la supprimer, et une photo supprimée ne quitte jamais la borne.
+Le tableau de bord indique les e-mails envoyés / en attente (avec la dernière erreur) et l'état de la clé USB.
 
 ## Brancher l'appareil photo Canon
 
@@ -119,8 +143,8 @@ Tout ce qui concerne les clients est rangé **hors du code**, dans `~/matbooth-d
 | `cadres/unique/`, `cadres/collage4/` | Cadres réservés à un mode |
 | `cadres/bandes/` | Cadres des bandes 5x15 (les cadres communs 10x15 ne s'y appliquent pas) |
 | `evenements/<nom>/photos/` | Photos gardées, au format d'impression |
-| `reglages.json` | Réglages généraux (code d'accès, ISO, événement actif) |
-| `matbooth.sqlite` | Événements et leurs réglages, registre des photos et des impressions |
+| `reglages.json` | Réglages généraux (code d'accès, ISO, événement actif, réseau, serveur e-mail et son mot de passe) |
+| `matbooth.sqlite` | Événements et leurs réglages, registre des photos et des impressions, e-mails en attente, liens QR |
 
 ### Ajouter un cadre
 

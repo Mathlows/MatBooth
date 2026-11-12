@@ -22,6 +22,21 @@ DEFAUTS = {
     "camera": {"iso_apercu": None, "iso_prise": None},
     # 10x15 à 300 dpi, en paysage
     "format_impression": [1800, 1200],
+    # Affiché avec le QR code : le téléphone du client doit être sur le même réseau que la borne.
+    # adresse vide = adresse détectée automatiquement.
+    "reseau": {"adresse": "", "wifi_nom": "", "wifi_mot_de_passe": ""},
+    # Serveur d'envoi des e-mails. securite : "starttls" (port 587), "ssl" (465) ou "aucune".
+    "smtp": {
+        "hote": "",
+        "port": 587,
+        "securite": "starttls",
+        "utilisateur": "",
+        "mot_de_passe": "",
+        "expediteur": "",
+        "nom_expediteur": "Photobooth",
+        "sujet": "Votre photo – {evenement}",
+        "message": "Bonjour,\n\nVoici votre photo prise au photobooth de « {evenement} ».\n\nBonne journée !",
+    },
 }
 
 PROFIL_DEFAUT = {
@@ -34,6 +49,8 @@ PROFIL_DEFAUT = {
     "apercu_miroir": True,
     "delai_inactivite_resultat": 90,
     "ajustements": {"luminosite": 1.0, "contraste": 1.0, "saturation": 1.0},
+    # Envoi des photos aux clients (chaque option s'active pour l'événement).
+    "partage": {"qr": False, "email": False, "usb": False},
 }
 
 

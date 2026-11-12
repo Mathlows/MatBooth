@@ -18,7 +18,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { background: var(--fond); color: var(--texte); font-family: "Inter", system-ui, sans-serif; font-size: 16px; }
 body { min-height: 100vh; -webkit-tap-highlight-color: transparent; }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; border: none; background: none; }
 .kiosque, .kiosque * { cursor: none !important; }
 [hidden] { display: none !important; }
@@ -103,17 +103,20 @@ main { padding: 20px; max-width: 1200px; margin: 0 auto; }
 
 /* ---------- Formulaires ---------- */
 .ligne-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-.ligne-form input[type=text], .ligne-form select { flex: 1; min-width: 200px; }
-input[type=text], input[type=number], input[type=password], select {
+.ligne-form input[type=text], .ligne-form input[type=email], .ligne-form select { flex: 1; min-width: 200px; }
+input[type=text], input[type=number], input[type=password], input[type=email], select, textarea {
   min-height: 48px; padding: 0 14px; border-radius: var(--rayon);
   background: var(--fond); border: 1px solid var(--bord); width: 100%;
 }
 input[type=file] { flex: 1; min-width: 200px; padding: 10px 0; }
-input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea { padding: 12px 14px; resize: vertical; line-height: 1.5; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 fieldset { border: none; margin-top: 22px; }
 legend { font-weight: 700; margin-bottom: 10px; }
 .champ { display: flex; flex-direction: column; gap: 8px; color: var(--texte-doux); font-size: 14px; }
-.champ input, .champ select { color: var(--texte); font-size: 16px; }
+.champ input, .champ select, .champ textarea { color: var(--texte); font-size: 16px; }
+#form-smtp > .champ, #form-smtp > .ligne-form { margin-top: 16px; }
+#form-smtp .ligne-form .bouton.petit { width: auto; }
 .grille-champs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 18px; }
 form > .champ:first-of-type { margin-top: 0; }
 

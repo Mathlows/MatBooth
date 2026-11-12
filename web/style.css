@@ -151,6 +151,13 @@ h1 { font-size: 8vh; font-weight: 700; margin: 1.5vh 0 1vh; text-align: center; 
 .bouton.discret { background: transparent; border: .25vh solid var(--surface-2); font-size: max(2.2vh, 14px); padding: 1.6vh; }
 .bouton.danger { color: var(--danger); }
 .actions-secondaires { display: flex; gap: 1.4vh; }
+.actions-partage { display: flex; gap: 1.4vh; }
+.actions-partage[hidden], .bouton[hidden] { display: none; }
+.bouton.partage {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 1.2vh;
+  font-size: max(2.2vh, 13px); padding: 1.8vh 1.2vh; border: .25vh solid var(--accent); background: transparent; color: var(--accent);
+}
+.bouton.partage svg { width: 3vh; height: 3vh; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .info { color: var(--texte-doux); font-size: max(1.9vh, 12px); text-align: center; min-height: 1em; }
 .info:empty { display: none; }
 
@@ -174,3 +181,36 @@ h1 { font-size: 8vh; font-weight: 700; margin: 1.5vh 0 1vh; text-align: center; 
   background: var(--danger); color: #fff; padding: 2vh 4vh; border-radius: var(--rayon); font-size: 2.6vh; font-weight: 700;
 }
 .bandeau-erreur[hidden] { display: none; }
+
+/* ---------- Envoi : QR code et e-mail ---------- */
+.modale-boite.large { width: min(94vw, 150vh); gap: 3vh; padding: 4vh; }
+.qr-etapes { display: flex; justify-content: center; gap: 6vh; }
+.qr-etape { display: flex; flex-direction: column; align-items: center; gap: 1.6vh; max-width: 46vh; text-align: center; }
+.qr-etape .numero {
+  width: 5vh; height: 5vh; border-radius: 50%; background: var(--accent); color: var(--accent-texte);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 2.8vh;
+}
+.qr-etape .titre { font-size: 2.8vh; font-weight: 700; }
+.qr-etape .detail { font-size: 2.2vh; color: var(--texte-doux); line-height: 1.4; }
+.qr-etape .detail strong { color: var(--texte); }
+.qr-image { width: 36vh; height: 36vh; background: #fff; border-radius: 1.6vh; padding: 1vh; }
+.qr-image svg { width: 100%; height: 100%; display: block; }
+
+.saisie-email {
+  background: var(--fond); border: .3vh solid var(--accent); border-radius: var(--rayon);
+  padding: 2vh 2.4vh; font-size: 4vh; min-height: 9vh; display: flex; align-items: center; overflow: hidden; white-space: nowrap;
+}
+.saisie-email.vide #texte-email::before { content: "votre.adresse@exemple.fr"; color: #5d5660; }
+.curseur-saisie { width: .35vh; height: 4.6vh; background: var(--accent); margin-left: .3vh; animation: clignote 1s steps(1) infinite; flex-shrink: 0; }
+@keyframes clignote { 50% { opacity: 0; } }
+.aide-email { text-align: center; color: var(--texte-doux); font-size: 2.2vh; margin-top: -1.4vh; }
+.aide-email.erreur { color: var(--danger); font-weight: 700; }
+.clavier { display: flex; flex-direction: column; gap: 1vh; }
+.clavier .rangee { display: flex; gap: 1vh; justify-content: center; }
+.clavier button {
+  flex: 1; max-width: 10vh; height: 7.4vh; border-radius: 1vh; background: var(--surface-2);
+  font-size: 3.2vh; font-weight: 700; transition: transform .08s ease, filter .08s ease;
+}
+.clavier button:active { transform: scale(.92); filter: brightness(1.4); }
+.clavier button.large { max-width: none; flex: 1.6; font-size: 2.4vh; }
+.clavier .raccourcis button { max-width: none; font-size: 2.2vh; color: var(--accent); }

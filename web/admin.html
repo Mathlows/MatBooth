@@ -93,6 +93,22 @@
           </label>
 
           <fieldset>
+            <legend>Envoi des photos aux clients</legend>
+            <label class="interrupteur">
+              <input id="ev-partage-qr" type="checkbox">
+              <span>QR code pour télécharger la photo sur son téléphone (même Wi-Fi que la borne)</span>
+            </label>
+            <label class="interrupteur">
+              <input id="ev-partage-email" type="checkbox">
+              <span>Envoi par e-mail (le serveur d'envoi se règle dans l'onglet Réglages)</span>
+            </label>
+            <label class="interrupteur">
+              <input id="ev-partage-usb" type="checkbox">
+              <span>Copie automatique des photos sur une clé USB branchée sur la borne</span>
+            </label>
+          </fieldset>
+
+          <fieldset>
             <legend>Filtres proposés</legend>
             <div id="ev-filtres" class="puces"></div>
           </fieldset>
@@ -171,6 +187,81 @@
           <div class="barre-enregistrer">
             <button class="bouton principal">Enregistrer</button>
             <span id="etat-camera" class="doux"></span>
+          </div>
+        </form>
+
+        <form id="form-reseau" class="carte">
+          <h2>Réseau (QR code)</h2>
+          <p class="doux petit">Le téléphone du client doit être sur le même réseau Wi-Fi que la borne.
+            Si vous indiquez le Wi-Fi, un second QR code permet de s'y connecter en un geste.</p>
+          <div class="grille-champs">
+            <label class="champ">Nom du Wi-Fi (facultatif)
+              <input id="reseau-wifi-nom" type="text" maxlength="32" autocomplete="off">
+            </label>
+            <label class="champ">Mot de passe du Wi-Fi
+              <input id="reseau-wifi-mdp" type="text" maxlength="63" autocomplete="off">
+            </label>
+            <label class="champ">Adresse de la borne (vide = automatique)
+              <input id="reseau-adresse" type="text" maxlength="200" autocomplete="off">
+            </label>
+          </div>
+          <div class="barre-enregistrer">
+            <button class="bouton principal">Enregistrer</button>
+            <span id="etat-reseau" class="doux"></span>
+          </div>
+        </form>
+
+        <form id="form-smtp" class="carte">
+          <h2>E-mail (serveur d'envoi)</h2>
+          <p class="doux petit">Les e-mails attendent dans la borne et partent dès qu'internet est disponible.
+            Avec Gmail : serveur smtp.gmail.com, port 587, et un « mot de passe d'application » (pas le mot de passe du compte).</p>
+          <div class="ligne-form">
+            <span class="doux petit">Préréglage :</span>
+            <button type="button" class="bouton petit" data-prereglage="gmail">Gmail</button>
+            <button type="button" class="bouton petit" data-prereglage="outlook">Outlook / Hotmail</button>
+            <button type="button" class="bouton petit" data-prereglage="orange">Orange</button>
+            <button type="button" class="bouton petit" data-prereglage="ovh">OVH</button>
+          </div>
+          <div class="grille-champs">
+            <label class="champ">Serveur
+              <input id="smtp-hote" type="text" maxlength="200" autocomplete="off" placeholder="smtp.gmail.com">
+            </label>
+            <label class="champ">Port
+              <input id="smtp-port" type="number" min="1" max="65535">
+            </label>
+            <label class="champ">Sécurité
+              <select id="smtp-securite">
+                <option value="starttls">STARTTLS (port 587)</option>
+                <option value="ssl">SSL/TLS (port 465)</option>
+                <option value="aucune">Aucune</option>
+              </select>
+            </label>
+            <label class="champ">Identifiant
+              <input id="smtp-utilisateur" type="text" maxlength="200" autocomplete="off">
+            </label>
+            <label class="champ">Mot de passe
+              <input id="smtp-mdp" type="password" maxlength="200" autocomplete="new-password">
+            </label>
+            <label class="champ">Adresse d'expéditeur
+              <input id="smtp-expediteur" type="email" maxlength="254" autocomplete="off">
+            </label>
+            <label class="champ">Nom d'expéditeur
+              <input id="smtp-nom" type="text" maxlength="100" autocomplete="off">
+            </label>
+            <label class="champ">Objet ({evenement} = nom de l'événement)
+              <input id="smtp-sujet" type="text" maxlength="200" autocomplete="off">
+            </label>
+          </div>
+          <label class="champ">Message
+            <textarea id="smtp-message" rows="5" maxlength="5000"></textarea>
+          </label>
+          <div class="barre-enregistrer">
+            <button class="bouton principal">Enregistrer</button>
+            <span id="etat-smtp" class="doux"></span>
+          </div>
+          <div class="ligne-form">
+            <input id="smtp-essai-adresse" type="email" maxlength="254" placeholder="Votre adresse, pour un essai">
+            <button id="btn-essai-smtp" type="button" class="bouton">Envoyer un e-mail de test</button>
           </div>
         </form>
 

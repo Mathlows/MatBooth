@@ -66,6 +66,8 @@ function demander(texte, boutons) {
 async function retourAccueil() {
   seance = null;
   $("modale").hidden = true;
+  $("fenetre-qr").hidden = true;
+  $("fenetre-email").hidden = true;
   afficher("accueil");
   try {
     etat = await api("/api/etat");
@@ -216,10 +218,160 @@ function majImpression() {
   }
 }
 
+// ---------- Envoi au client : QR code et e-mail ----------
+
+function majPartage() {
+  const p = etat.partage || {};
+  $("btn-qr").hidden = !p.qr;
+  $("btn-email").hidden = !p.email;
+  $("actions-partage").hidden = !(p.qr || p.email);
+  const adresses = seance.emails || [];
+  $("info-partage").textContent = adresses.length ? `Envoi prévu à : ${adresses.join(", ")}` : "";
+}
+
+function etapeQr(numero, titre, svg, detail) {
+  const etape = document.createElement("div");
+  etape.className = "qr-etape";
+  const image = document.createElement("div");
+  image.className = "qr-image";
+  image.innerHTML = svg; // SVG produit par la borne elle-même
+  const texte = document.createElement("p");
+  texte.className = "detail";
+  texte.append(...detail);
+  const enTete = document.createElement("p");
+  enTete.className = "titre";
+  enTete.textContent = titre;
+  if (numero) {
+    const pastille = document.createElement("span");
+    pastille.className = "numero";
+    pastille.textContent = numero;
+    etape.append(pastille);
+  }
+  etape.append(enTete, image, texte);
+  return etape;
+}
+
+function gras(texte) {
+  const b = document.createElement("strong");
+  b.textContent = texte;
+  return b;
+}
+
+async function ouvrirQr() {
+  if (occupe || !seance) return;
+  occupe = true;
+  try {
+    const r = await envoyer(`/api/seances/${seance.id}/qr`, choix);
+    const etapes = [];
+    if (r.wifi) {
+      const detail = ["Réseau ", gras(r.wifi.nom)];
+      if (r.wifi.mot_de_passe) detail.push(document.createElement("br"), "Mot de passe ", gras(r.wifi.mot_de_passe));
+      etapes.push(etapeQr("1", "Connectez-vous au Wi-Fi", r.wifi.qr, detail));
+      etapes.push(etapeQr("2", "Scannez pour ouvrir la photo", r.qr, ["Puis touchez « Télécharger la photo »."]));
+    } else {
+      etapes.push(etapeQr("", "Scannez avec l'appareil photo de votre téléphone", r.qr,
+        ["Votre téléphone doit être connecté au même Wi-Fi que la borne."]));
+    }
+    $("qr-etapes").replaceChildren(...etapes);
+    $("fenetre-qr").hidden = false;
+    relancerInactivite();
+  } catch (e) {
+    erreur(e.message);
+  } finally {
+    occupe = false;
+  }
+}
+
+const CLAVIER = [
+  ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+  ["a", "z", "e", "r", "t", "y", "u", "i", "o", "p"],
+  ["q", "s", "d", "f", "g", "h", "j", "k", "l", "m"],
+  ["w", "x", "c", "v", "b", "n", ".", "-", "_", "⌫"],
+];
+const RACCOURCIS = ["@", "@gmail.com", "@hotmail.fr", "@orange.fr", "@icloud.com", "@yahoo.fr", ".com", ".fr"];
+const FORME_EMAIL = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+let texteEmail = "";
+
+function majSaisieEmail(message = "", estErreur = false) {
+  $("texte-email").textContent = texteEmail;
+  $("saisie-email").classList.toggle("vide", !texteEmail);
+  const aide = $("aide-email");
+  aide.textContent = message || "La photo partira dès que la borne aura accès à internet.";
+  aide.classList.toggle("erreur", estErreur);
+}
+
+function taper(touche) {
+  if (touche === "⌫") texteEmail = texteEmail.slice(0, -1);
+  else if (texteEmail.length < 254) {
+    // Un seul @ : un raccourci de domaine remplace ce qui suivait le @.
+    if (touche.startsWith("@") && texteEmail.includes("@")) texteEmail = texteEmail.slice(0, texteEmail.indexOf("@"));
+    texteEmail += touche;
+  }
+  majSaisieEmail();
+}
+
+function construireClavier() {
+  const rangee = (touches, classe = "") => {
+    const r = document.createElement("div");
+    r.className = `rangee ${classe}`;
+    for (const t of touches) {
+      const b = document.createElement("button");
+      b.textContent = t;
+      if (t === "⌫") b.classList.add("large");
+      b.onclick = () => taper(t);
+      r.appendChild(b);
+    }
+    return r;
+  };
+  $("clavier").replaceChildren(...CLAVIER.map((t) => rangee(t)), rangee(RACCOURCIS, "raccourcis"));
+}
+
+function ouvrirEmail() {
+  if (occupe || !seance) return;
+  texteEmail = "";
+  majSaisieEmail();
+  $("fenetre-email").hidden = false;
+}
+
+function fermerEmail() {
+  $("fenetre-email").hidden = true;
+}
+
+async function envoyerEmail() {
+  if (occupe || !seance) return;
+  if (!FORME_EMAIL.test(texteEmail)) {
+    majSaisieEmail("Cette adresse e-mail ne semble pas complète.", true);
+    return;
+  }
+  occupe = true;
+  try {
+    const r = await envoyer(`/api/seances/${seance.id}/email`, { ...choix, adresse: texteEmail });
+    seance.emails = r.adresses;
+    fermerEmail();
+    majPartage();
+  } catch (e) {
+    majSaisieEmail(e.message, true);
+  } finally {
+    occupe = false;
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if ($("fenetre-email").hidden) return;
+  if (e.key === "Backspace") taper("⌫");
+  else if (e.key === "Enter") envoyerEmail();
+  else if (e.key === "Escape") fermerEmail();
+  else if (e.key.length === 1 && /[\w.@+-]/.test(e.key)) taper(e.key.toLowerCase());
+  else return;
+  e.preventDefault();
+});
+
 async function ouvrirResultat() {
   seance.cadres = await api(`/api/cadres?mode=${encodeURIComponent(seance.mode)}`);
+  seance.emails = [];
   majChoix();
   majImpression();
+  majPartage();
   afficher("resultat");
   relancerInactivite();
 }
@@ -312,6 +464,12 @@ $("btn-imprimer").onclick = imprimer;
 $("btn-terminer").onclick = terminer;
 $("btn-reprendre").onclick = recommencer;
 $("btn-supprimer").onclick = supprimer;
+$("btn-qr").onclick = ouvrirQr;
+$("btn-fermer-qr").onclick = () => ($("fenetre-qr").hidden = true);
+$("btn-email").onclick = ouvrirEmail;
+$("btn-annuler-email").onclick = fermerEmail;
+$("btn-envoyer-email").onclick = envoyerEmail;
+construireClavier();
 
 document.addEventListener("pointerdown", () => {
   if (minuteurInactivite) relancerInactivite();

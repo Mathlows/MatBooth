@@ -7,11 +7,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import config
+from . import config, partage
 from .admin import creer_routeur
 from .cabine import Cabine, ErreurCabine
 from .gestion import Gestion
@@ -36,6 +36,18 @@ class ChoixImpression(ChoixFinal):
     copies: int = Field(1, ge=1)
 
 
+class ChoixEmail(ChoixFinal):
+    adresse: str = Field(max_length=254)
+
+
+def url_borne(cabine: Cabine) -> str:
+    """Adresse de la borne vue depuis un téléphone du même réseau."""
+    adresse = cabine.reglages["reseau"]["adresse"].strip() or partage.adresse_locale()
+    if adresse.startswith("http://") or adresse.startswith("https://"):
+        return adresse.rstrip("/")
+    return f"http://{adresse}" + ("" if config.PORT == 80 else f":{config.PORT}")
+
+
 def creer_app(cabine: Cabine | None = None) -> FastAPI:
     @asynccontextmanager
     async def cycle_de_vie(app: FastAPI):
@@ -46,10 +58,13 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
                 creer_imprimante(config.IMPRIMANTE, config.DOSSIER_DONNEES),
                 config.DOSSIER_EXEMPLES,
             )
+            # Envoi des e-mails et sauvegarde USB (pas dans les tests, qui fournissent leur cabine).
+            app.state.cabine.demarrer_services()
         else:
             app.state.cabine = cabine
         app.state.gestion = Gestion(app.state.cabine)
         yield
+        app.state.cabine.arreter_services()
         app.state.cabine.camera.fermer()
         app.state.cabine.imprimante.fermer()
 
@@ -73,6 +88,10 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
     @app.get("/")
     def accueil():
         return FileResponse(config.DOSSIER_WEB / "index.html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/favicon.ico")
+    def favicon():
+        return Response(status_code=204)
 
     @app.get("/admin")
     def page_admin():
@@ -134,6 +153,48 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
     def imprimer(request: Request, seance_id: str, choix: ChoixImpression):
         restantes = c(request).imprimer(seance_id, choix.filtre, choix.cadre, choix.copies)
         return {"ok": True, "impressions_restantes": restantes}
+
+    @app.post("/api/seances/{seance_id}/qr")
+    def qr(request: Request, seance_id: str, choix: ChoixFinal):
+        cabine = c(request)
+        jeton = cabine.lien_telechargement(seance_id, choix.filtre, choix.cadre)
+        url = f"{url_borne(cabine)}/p/{jeton}"
+        reseau = cabine.reglages["reseau"]
+        wifi = None
+        if reseau["wifi_nom"].strip():
+            wifi = {
+                "nom": reseau["wifi_nom"].strip(),
+                "mot_de_passe": reseau["wifi_mot_de_passe"],
+                "qr": partage.qr_wifi_svg(reseau["wifi_nom"].strip(), reseau["wifi_mot_de_passe"]),
+            }
+        return {"url": url, "qr": partage.qr_svg(url), "wifi": wifi}
+
+    @app.post("/api/seances/{seance_id}/email")
+    def email(request: Request, seance_id: str, choix: ChoixEmail):
+        adresses = c(request).demander_email(seance_id, choix.filtre, choix.cadre, choix.adresse)
+        return {"adresses": adresses}
+
+    # Page ouverte par le téléphone du client après avoir scanné le QR code.
+    @app.get("/p/{jeton}", response_class=HTMLResponse)
+    def page_photo(request: Request, jeton: str):
+        trouve = c(request).photo_telechargee(jeton)
+        if trouve is None:
+            return HTMLResponse("<p style='font-family:sans-serif'>Cette photo n'est plus disponible.</p>", status_code=404)
+        return HTMLResponse(partage.page_telechargement(trouve[1], jeton), headers={"Cache-Control": "no-store"})
+
+    @app.get("/p/{jeton}/photo.jpg")
+    def fichier_photo(request: Request, jeton: str, telecharger: bool = False):
+        trouve = c(request).photo_telechargee(jeton)
+        if trouve is None:
+            raise HTTPException(404, "Cette photo n'est plus disponible.")
+        fichier = trouve[0]
+        return FileResponse(
+            fichier,
+            media_type="image/jpeg",
+            filename=f"photobooth-{fichier.name}" if telecharger else None,
+            content_disposition_type="attachment" if telecharger else "inline",
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.delete("/api/seances/{seance_id}")
     def supprimer(request: Request, seance_id: str):

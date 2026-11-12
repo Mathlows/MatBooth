@@ -7,6 +7,7 @@ Tant qu'elle n'est pas gardée, ses fichiers sont dans un dossier temporaire :
 
 import io
 import logging
+import secrets
 import shutil
 import threading
 import time
@@ -16,7 +17,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from . import cadres, images
+from . import cadres, images, partage
 from .base import Base
 from .materiel.camera import Camera
 from .materiel.imprimante import ErreurImprimante, Imprimante
@@ -25,6 +26,7 @@ from .reglages import PROFIL_DEFAUT, Reglages, fusion
 journal = logging.getLogger(__name__)
 
 _TAILLE_APERCU = 1400
+_EMAILS_MAX_PAR_PHOTO = 5
 
 
 class ErreurCabine(Exception):
@@ -40,6 +42,8 @@ class Seance:
     apercus: list[Image.Image] = field(default_factory=list)
     photo_id: int | None = None
     fichier_final: Path | None = None
+    # Choix utilisés pour la photo enregistrée (elle est refaite si le client les change ensuite).
+    choix_final: tuple[str, str | None] | None = None
 
     @property
     def complete(self) -> bool:
@@ -65,6 +69,17 @@ class Cabine:
         self._verrou = threading.RLock()
         self._preparer_evenement()
         self.appliquer_reglages_camera()
+        self.emails = partage.FileEmails(self)
+        self.usb = partage.SauvegardeUSB(self)
+
+    def demarrer_services(self) -> None:
+        """Envoi des e-mails et sauvegarde USB, en tâche de fond."""
+        self.emails.demarrer()
+        self.usb.demarrer()
+
+    def arreter_services(self) -> None:
+        self.emails.arreter()
+        self.usb.arreter()
 
     def _preparer_evenement(self) -> None:
         """Garantit qu'un événement existe et qu'il est actif."""
@@ -127,7 +142,17 @@ class Cabine:
             "filtres": [{"id": f, "nom": images.FILTRES[f]} for f in self.filtres_actifs()],
             "camera": {"nom": self.camera.nom, **self.camera.etat()},
             "imprimante": {"nom": self.imprimante.nom, **self.imprimante.etat()},
+            "partage": {
+                "qr": r["partage"]["qr"],
+                # Proposé seulement si les e-mails peuvent réellement partir un jour.
+                "email": self.etat_partage_email(),
+            },
         }
+
+    def photo_en_cours(self) -> int | None:
+        """Photo déjà enregistrée mais dont le client peut encore décider la suppression."""
+        seance = self._seance
+        return seance.photo_id if seance is not None else None
 
     def cadres_du_mode(self, mode: str) -> list[dict]:
         actifs = self.profil["cadres_actifs"]
@@ -217,6 +242,12 @@ class Cabine:
         with self._verrou:
             seance = self._obtenir(seance_id)
             if seance.photo_id is not None:
+                if seance.choix_final != (filtre, cadre_id):
+                    # Photo déjà partagée, puis filtre ou cadre changé : on la refait au même endroit.
+                    finale = self._composer(seance, filtre, cadre_id, True)
+                    finale.save(seance.fichier_final, "JPEG", quality=95, dpi=(300, 300))
+                    self.base.modifier_photo(seance.photo_id, filtre, cadre_id)
+                    seance.choix_final = (filtre, cadre_id)
                 return seance
             finale = self._composer(seance, filtre, cadre_id, True)
             dossier = self.dossier_evenement(self.evenement) / "photos"
@@ -224,6 +255,7 @@ class Cabine:
             fichier = dossier / f"{time.strftime('%Y%m%d-%H%M%S')}_{seance.id[:6]}.jpg"
             finale.save(fichier, "JPEG", quality=95, dpi=(300, 300))
             seance.fichier_final = fichier
+            seance.choix_final = (filtre, cadre_id)
             seance.photo_id = self.base.ajouter_photo(
                 self.evenement, str(fichier.relative_to(self.dossier_donnees)), seance.mode, filtre, cadre_id
             )
@@ -257,12 +289,61 @@ class Cabine:
             self.base.ajouter_impression(seance.photo_id, self.evenement, copies)
             return self.impressions_restantes()
 
+    # --- Envoi au client ----------------------------------------------------
+
+    def lien_telechargement(self, seance_id: str, filtre: str, cadre_id: str | None) -> str:
+        """Enregistre la photo et renvoie le jeton secret de son lien de téléchargement."""
+        if not self.profil["partage"]["qr"]:
+            raise ErreurCabine("Le téléchargement par QR code n'est pas activé.")
+        with self._verrou:
+            seance = self.garder(seance_id, filtre, cadre_id)
+            jeton = self.base.lien_de_photo(seance.photo_id)
+            if jeton is None:
+                jeton = secrets.token_urlsafe(16)
+                self.base.ajouter_lien(jeton, seance.photo_id)
+            return jeton
+
+    def demander_email(self, seance_id: str, filtre: str, cadre_id: str | None, adresse: str) -> list[str]:
+        """Met la photo en file d'attente pour cette adresse. Renvoie les adresses déjà demandées."""
+        if not self.etat_partage_email():
+            raise ErreurCabine("L'envoi par e-mail n'est pas disponible.")
+        adresse = adresse.strip()
+        if not partage.adresse_email_valide(adresse):
+            raise ErreurCabine("Cette adresse e-mail ne semble pas valide.")
+        with self._verrou:
+            seance = self.garder(seance_id, filtre, cadre_id)
+            deja = self.base.adresses_envoi(seance.photo_id)
+            if adresse.lower() in (a.lower() for a in deja):
+                return deja
+            if len(deja) >= _EMAILS_MAX_PAR_PHOTO:
+                raise ErreurCabine(f"{_EMAILS_MAX_PAR_PHOTO} adresses au maximum par photo.")
+            self.base.ajouter_envoi(seance.photo_id, self.evenement, adresse)
+            return deja + [adresse]
+
+    def etat_partage_email(self) -> bool:
+        return self.profil["partage"]["email"] and partage.smtp_configure(self.reglages["smtp"])
+
+    def photo_telechargee(self, jeton: str) -> tuple[Path, str] | None:
+        """Fichier et nom d'événement d'un lien de téléchargement (None si le lien n'existe plus)."""
+        photo = self.base.photo_du_lien(jeton)
+        if photo is None:
+            return None
+        fichier = self.dossier_donnees / photo["fichier"]
+        if not fichier.exists():
+            return None
+        evenement = self.base.evenement(photo["evenement"])
+        return fichier, evenement["nom"] if evenement else ""
+
     def supprimer(self, seance_id: str) -> None:
-        """Le client supprime sa photo : rien n'est conservé."""
+        """Le client supprime sa photo : rien n'est conservé, même si elle avait déjà été partagée."""
         with self._verrou:
             seance = self._obtenir(seance_id)
             if seance.photo_id is not None:
-                raise ErreurCabine("Cette photo est déjà enregistrée.")
+                fichier = seance.fichier_final
+                (fichier.parent.parent / "miniatures" / fichier.name).unlink(missing_ok=True)
+                fichier.unlink(missing_ok=True)
+                self.base.supprimer_photo(seance.photo_id)  # e-mails en attente et lien compris
+                journal.info("Photo partagée puis supprimée par le client : %s", fichier.name)
             self._effacer(seance)
 
     def _effacer(self, seance: Seance) -> None:
@@ -270,6 +351,9 @@ class Cabine:
         seance.apercus.clear()
         if self._seance is seance:
             self._seance = None
+            # Séance terminée : ses e-mails peuvent partir.
+            if hasattr(self, "emails"):
+                self.emails.reveiller()
 
 
 def _jpeg(image: Image.Image, qualite: int = 85) -> bytes:

@@ -1,3 +1,4 @@
 -r requirements.txt
 pytest>=8
 httpx>=0.27
+aiosmtpd>=1.4  # vrai serveur SMTP local pour les tests d'envoi

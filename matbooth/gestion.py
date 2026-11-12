@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
-from . import cadres, images
+from . import cadres, images, partage
 from .cabine import Cabine, ErreurCabine
 from .reglages import PROFIL_DEFAUT, fusion
 
@@ -42,6 +42,8 @@ class Gestion:
             "impressions_restantes": c.impressions_restantes(),
             "camera": {"nom": c.camera.nom, **c.camera.etat()},
             "imprimante": {"nom": c.imprimante.nom, **c.imprimante.etat()},
+            "emails": c.emails.etat(),
+            "usb": c.usb.etat(),
             "disque_libre_go": round(disque.free / 1e9, 1),
             "pin_par_defaut": c.reglages.pin_par_defaut,
         }
@@ -232,6 +234,37 @@ class Gestion:
     def modifier_reglages_camera(self, valeurs: dict) -> None:
         self.cabine.reglages.modifier({"camera": valeurs})
         self.cabine.appliquer_reglages_camera()
+
+    def reglages_envoi(self) -> dict:
+        smtp = self.cabine.reglages["smtp"]
+        return {
+            "reseau": self.cabine.reglages["reseau"],
+            "adresse_detectee": partage.adresse_locale(),
+            # Le mot de passe ne quitte jamais la borne : on dit seulement s'il existe.
+            "smtp": {**{k: v for k, v in smtp.items() if k != "mot_de_passe"}, "mot_de_passe_enregistre": bool(smtp["mot_de_passe"])},
+        }
+
+    def modifier_reseau(self, valeurs: dict) -> None:
+        self.cabine.reglages.modifier({"reseau": {k: v.strip() if k != "wifi_mot_de_passe" else v for k, v in valeurs.items()}})
+
+    def modifier_smtp(self, valeurs: dict) -> None:
+        valeurs = {k: v.strip() if isinstance(v, str) and k not in ("mot_de_passe", "message") else v for k, v in valeurs.items()}
+        if valeurs["mot_de_passe"] is None:
+            del valeurs["mot_de_passe"]
+        if valeurs["expediteur"] and not partage.adresse_email_valide(valeurs["expediteur"]):
+            raise ErreurCabine("L'adresse d'expéditeur ne semble pas valide.")
+        self.cabine.reglages.modifier({"smtp": valeurs})
+        # Les e-mails en attente repartent tout de suite avec les nouveaux réglages.
+        self.base.relancer_envois()
+        self.cabine.emails.reveiller()
+
+    def essai_email(self, adresse: str) -> None:
+        if not partage.adresse_email_valide(adresse.strip()):
+            raise ErreurCabine("Cette adresse e-mail ne semble pas valide.")
+        try:
+            self.cabine.emails.essai(adresse.strip())
+        except ValueError as erreur:
+            raise ErreurCabine(str(erreur)) from erreur
 
     def changer_pin(self, ancien: str, nouveau: str) -> None:
         if not self.cabine.reglages.verifier_pin(ancien):

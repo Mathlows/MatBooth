@@ -43,6 +43,17 @@
       <h2>Cadres</h2>
       <div id="cadres" class="choix"></div>
       <div class="actions">
+        <div id="actions-partage" class="actions-partage" hidden>
+          <button id="btn-qr" class="bouton partage" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+            Sur mon téléphone
+          </button>
+          <button id="btn-email" class="bouton partage" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 6.5 9 6.5 9-6.5"/></svg>
+            Par e-mail
+          </button>
+        </div>
+        <p id="info-partage" class="info"></p>
         <button id="btn-imprimer" class="bouton principal">Imprimer</button>
         <p id="info-impression" class="info"></p>
         <button id="btn-terminer" class="bouton">Terminer sans imprimer</button>
@@ -59,6 +70,29 @@
     <p class="grand-texte" id="texte-merci">Merci !</p>
     <p class="consigne" id="sous-texte-merci"></p>
   </section>
+
+  <!-- QR code : la photo sur le téléphone du client -->
+  <div id="fenetre-qr" class="modale" hidden>
+    <div class="modale-boite large">
+      <p class="modale-texte">Votre photo sur votre téléphone</p>
+      <div id="qr-etapes" class="qr-etapes"></div>
+      <button id="btn-fermer-qr" class="bouton principal">C'est bon</button>
+    </div>
+  </div>
+
+  <!-- Saisie de l'adresse e-mail -->
+  <div id="fenetre-email" class="modale" hidden>
+    <div class="modale-boite large email">
+      <p class="modale-texte">Recevoir la photo par e-mail</p>
+      <div id="saisie-email" class="saisie-email"><span id="texte-email"></span><span class="curseur-saisie"></span></div>
+      <p id="aide-email" class="aide-email">La photo partira dès que la borne aura accès à internet.</p>
+      <div id="clavier" class="clavier"></div>
+      <div class="modale-boutons">
+        <button id="btn-annuler-email" class="bouton">Annuler</button>
+        <button id="btn-envoyer-email" class="bouton principal">Envoyer</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Fenêtre de confirmation -->
   <div id="modale" class="modale" hidden>
