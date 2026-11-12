@@ -88,7 +88,7 @@ class Profil(BaseModel):
     cadres_actifs: list[str] | None = None
     copies_max_par_photo: int = Field(2, ge=1, le=10)
     limite_impressions: int = Field(0, ge=0, le=100000)
-    apercu_miroir: bool = True
+    apercu_miroir: bool = False
     delai_inactivite_resultat: int = Field(90, ge=15, le=600)
     ajustements: Ajustements = Ajustements()
     partage: Partage = Partage()

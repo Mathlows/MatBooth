@@ -204,6 +204,8 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
     @app.get("/p/{jeton}", response_class=HTMLResponse)
     def page_photo(request: Request, jeton: str):
         trouve = c(request).photo_telechargee(jeton)
+        journal.info("Page de téléchargement ouverte par %s (%s)", request.client.host if request.client else "?",
+                     "photo trouvée" if trouve else "lien inconnu ou photo supprimée")
         if trouve is None:
             return HTMLResponse("<p style='font-family:sans-serif'>Cette photo n'est plus disponible.</p>", status_code=404)
         return HTMLResponse(partage.page_telechargement(trouve[1], jeton), headers={"Cache-Control": "no-store"})
@@ -211,6 +213,8 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
     @app.get("/p/{jeton}/photo.jpg")
     def fichier_photo(request: Request, jeton: str, telecharger: bool = False):
         trouve = c(request).photo_telechargee(jeton)
+        if telecharger:
+            journal.info("Photo téléchargée par %s", request.client.host if request.client else "?")
         if trouve is None:
             raise HTTPException(404, "Cette photo n'est plus disponible.")
         fichier = trouve[0]

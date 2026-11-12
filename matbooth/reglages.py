@@ -46,7 +46,8 @@ PROFIL_DEFAUT = {
     "cadres_actifs": None,  # None = tous
     "copies_max_par_photo": 2,
     "limite_impressions": 0,  # 0 = pas de limite sur l'événement
-    "apercu_miroir": True,
+    # Miroir : l'aperçu serait inversé par rapport à la photo finale ; désactivé par défaut.
+    "apercu_miroir": False,
     "delai_inactivite_resultat": 90,
     "ajustements": {"luminosite": 1.0, "contraste": 1.0, "saturation": 1.0},
     # Envoi des photos aux clients (chaque option s'active pour l'événement).
