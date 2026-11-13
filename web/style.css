@@ -214,3 +214,11 @@ h1 { font-size: 8vh; font-weight: 700; margin: 1.5vh 0 1vh; text-align: center; 
 .clavier button:active { transform: scale(.92); filter: brightness(1.4); }
 .clavier button.large { max-width: none; flex: 1.6; font-size: 2.4vh; }
 .clavier .raccourcis button { max-width: none; font-size: 2.2vh; color: var(--accent); }
+.qr-consignes { display: flex; flex-direction: column; justify-content: center; gap: 4.5vh; max-width: 62vh; }
+.qr-consigne { display: flex; gap: 2.2vh; align-items: flex-start; text-align: left; }
+.qr-consigne .numero {
+  width: 5vh; height: 5vh; border-radius: 50%; background: var(--accent); color: var(--accent-texte); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 2.8vh;
+}
+.qr-consigne .titre { font-size: 2.8vh; font-weight: 700; margin-bottom: .8vh; }
+.qr-consigne .detail { font-size: 2.2vh; color: var(--texte-doux); line-height: 1.4; }

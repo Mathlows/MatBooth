@@ -251,6 +251,29 @@ function etapeQr(numero, titre, svg, detail) {
   return etape;
 }
 
+function etapesTexte(lignes) {
+  const zone = document.createElement("div");
+  zone.className = "qr-consignes";
+  for (const [numero, titre, detail] of lignes) {
+    const ligne = document.createElement("div");
+    ligne.className = "qr-consigne";
+    const pastille = document.createElement("span");
+    pastille.className = "numero";
+    pastille.textContent = numero;
+    const texte = document.createElement("div");
+    const t = document.createElement("p");
+    t.className = "titre";
+    t.textContent = titre;
+    const d = document.createElement("p");
+    d.className = "detail";
+    d.textContent = detail;
+    texte.append(t, d);
+    ligne.append(pastille, texte);
+    zone.appendChild(ligne);
+  }
+  return zone;
+}
+
 function gras(texte) {
   const b = document.createElement("strong");
   b.textContent = texte;
@@ -264,12 +287,16 @@ async function ouvrirQr() {
     const r = await envoyer(`/api/seances/${seance.id}/qr`, choix);
     const etapes = [];
     if (r.wifi && r.borne) {
-      // Wi-Fi de la borne : la photo s'ouvre d'elle-même (portail) une fois connecté.
+      // Wi-Fi de la borne : la photo s'ouvre dans la page « Se connecter au réseau » (portail).
+      // Pas de second QR code : ouvert dans le navigateur, il passerait par les données mobiles (Android).
       const detail = ["Réseau ", gras(r.wifi.nom)];
       if (r.wifi.mot_de_passe) detail.push(document.createElement("br"), "Mot de passe ", gras(r.wifi.mot_de_passe));
-      detail.push(document.createElement("br"), "Votre photo s'ouvre ensuite toute seule (touchez « Se connecter au réseau » si le téléphone le demande).");
-      etapes.push(etapeQr("1", "Connectez-vous au Wi-Fi de la borne", r.wifi.qr, detail));
-      etapes.push(etapeQr("2", "Rien ne s'ouvre ? Scannez ce code", r.qr, ["En restant sur le Wi-Fi de la borne."]));
+      etapes.push(etapeQr("1", "Scannez pour rejoindre le Wi-Fi", r.wifi.qr, detail));
+      etapes.push(etapesTexte([
+        ["2", "Touchez « Se connecter au réseau »",
+          "Dans la notification, ou dans les réglages Wi-Fi sur le réseau " + r.wifi.nom + ". Sur iPhone, la page s'ouvre toute seule."],
+        ["3", "Touchez « Télécharger la photo »", "Votre photo s'affiche dans cette page."],
+      ]));
     } else if (r.wifi) {
       const detail = ["Réseau ", gras(r.wifi.nom)];
       if (r.wifi.mot_de_passe) detail.push(document.createElement("br"), "Mot de passe ", gras(r.wifi.mot_de_passe));
