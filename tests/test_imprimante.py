@@ -150,3 +150,21 @@ def test_appuis_multiples_sur_imprimer_un_seul_tirage(client, cabine):
     codes = [client.post(f"/api/seances/{seance}/imprimer", json={"copies": 1}).status_code for _ in range(3)]
     assert codes == [200, 400, 400]
     assert len(list(cabine.imprimante.dossier.glob("*.jpg"))) == 2
+
+
+def test_file_d_impression_limitee(client, cabine, monkeypatch):
+    """3 impressions déjà en attente : on refuse la suivante (409), sans fermer la séance du client."""
+    from matbooth.cabine import FILE_IMPRESSION_MAX
+
+    etat_normal = cabine.imprimante.etat
+    monkeypatch.setattr(cabine.imprimante, "etat", lambda: {**etat_normal(), "en_attente": FILE_IMPRESSION_MAX})
+    seance = photographier(client, "unique")
+    reponse = client.post(f"/api/seances/{seance}/imprimer", json={"copies": 1})
+    assert reponse.status_code == 409 and "occupée" in reponse.json()["erreur"]
+    assert list(cabine.imprimante.dossier.glob("*.jpg")) == []
+    assert cabine.base.lister_toutes_photos() == []  # rien d'enregistré : la séance est intacte
+
+    # La file se vide : le client réessaie depuis le même écran, ça part.
+    monkeypatch.setattr(cabine.imprimante, "etat", lambda: {**etat_normal(), "en_attente": FILE_IMPRESSION_MAX - 1})
+    assert client.post(f"/api/seances/{seance}/imprimer", json={"copies": 1}).status_code == 200
+    assert len(list(cabine.imprimante.dossier.glob("*.jpg"))) == 1

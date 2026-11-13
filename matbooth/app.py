@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from . import config, partage
 from .admin import creer_routeur
-from .cabine import Cabine, ErreurCabine
+from .cabine import Cabine, ErreurCabine, ImprimanteOccupee
 from .gestion import Gestion
 from .materiel.camera import creer_camera
 from .materiel.imprimante import creer_imprimante
@@ -157,6 +157,11 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
     @app.exception_handler(ErreurCabine)
     async def erreur_cabine(_: Request, erreur: ErreurCabine):
         return JSONResponse({"erreur": str(erreur)}, status_code=400)
+
+    @app.exception_handler(ImprimanteOccupee)
+    async def imprimante_occupee(_: Request, erreur: ImprimanteOccupee):
+        # 409 : l'écran garde le client sur sa photo pour qu'il réessaie.
+        return JSONResponse({"erreur": str(erreur)}, status_code=409)
 
     @app.exception_handler(HTTPException)
     async def erreur_http(_: Request, erreur: HTTPException):

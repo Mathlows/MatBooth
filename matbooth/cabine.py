@@ -29,10 +29,16 @@ journal = logging.getLogger(__name__)
 
 _TAILLE_APERCU = 1400
 _EMAILS_MAX_PAR_PHOTO = 5
+# Impressions en attente au-delà desquelles on refuse d'en ajouter (environ 12 s par tirage sur la DNP).
+FILE_IMPRESSION_MAX = 3
 
 
 class ErreurCabine(Exception):
     """Erreur à afficher au client."""
+
+
+class ImprimanteOccupee(ErreurCabine):
+    """File d'impression pleine : le client peut réessayer un peu plus tard (sa séance reste ouverte)."""
 
 
 @dataclass
@@ -278,6 +284,17 @@ class Cabine:
             seance = self.garder(seance_id, filtre, cadre_id)
             self._effacer(seance)
 
+    def verifier_file_impression(self) -> None:
+        """Pas de longue file d'attente : au-delà de FILE_IMPRESSION_MAX impressions en attente, on refuse."""
+        try:
+            en_attente = int(self.imprimante.etat().get("en_attente") or 0)
+        except Exception:
+            return  # état illisible : l'imprimante dira elle-même ce qui ne va pas
+        if en_attente >= FILE_IMPRESSION_MAX:
+            raise ImprimanteOccupee(
+                f"L'imprimante est occupée ({en_attente} impressions en cours). Réessayez dans un instant."
+            )
+
     def imprimer(self, seance_id: str, filtre: str, cadre_id: str | None, copies: int) -> int | None:
         with self._verrou:
             seance = self._obtenir(seance_id)
@@ -286,6 +303,7 @@ class Cabine:
             restantes = self.impressions_restantes()
             if restantes is not None and copies > restantes:
                 raise ErreurCabine("La limite d'impressions est atteinte.")
+            self.verifier_file_impression()  # avant tout : la séance reste ouverte, le client peut réessayer
             seance = self.garder(seance_id, filtre, cadre_id)
             try:
                 self.imprimante.imprimer(seance.fichier_final, copies, bandes=bool(images.MODES[seance.mode].get("bande")))
@@ -428,6 +446,7 @@ class Cabine:
             restantes = self.impressions_restantes()
             if restantes is not None and copies > restantes:
                 raise ErreurCabine("La limite d'impressions est atteinte.")
+            self.verifier_file_impression()
             try:
                 self.imprimante.imprimer(fichier, copies, bandes=bool(images.MODES.get(photo["mode"], {}).get("bande")))
             except ErreurImprimante as erreur:

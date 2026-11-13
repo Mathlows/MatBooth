@@ -208,3 +208,14 @@ def test_interface_de_l_ecran_reservee_a_la_borne(cabine, borne):
         assert telephone.get("/admin").status_code == 200
         assert telephone.post("/api/admin/connexion", json={"pin": "1234"}).status_code == 200
     assert cabine.base.total_impressions(cabine.evenement) == 0
+
+
+def test_galerie_file_d_impression_limitee(cabine, borne, monkeypatch):
+    from matbooth.cabine import FILE_IMPRESSION_MAX
+
+    regler(cabine, galerie={"active": True, "suppression": False})
+    photo_gardee(borne)
+    [photo] = borne.get("/api/galerie").json()
+    monkeypatch.setattr(cabine.imprimante, "etat", lambda: {"ok": True, "message": "", "en_attente": FILE_IMPRESSION_MAX})
+    assert borne.post(f"/api/galerie/{photo['id']}/imprimer", json={"copies": 1}).status_code == 409
+    assert cabine.base.total_impressions(cabine.evenement) == 0

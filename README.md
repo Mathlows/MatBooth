@@ -195,6 +195,9 @@ Puis lancer avec `MATBOOTH_IMPRIMANTE=dnp`.
   garder textes et logos à **au moins 3 mm (40 pixels) du bord**.
 - **Bandes 5x15** : deux bandes identiques sur une feuille 10x15, coupées au milieu par l'imprimante
   (une impression = un tirage de papier = deux bandes).
+- **File d'attente limitée** : au-delà de 3 impressions en attente (environ 12 s par tirage), une nouvelle
+  impression est refusée avec « L'imprimante est occupée, réessayez dans un instant » ; le client reste sur sa
+  photo (filtre et cadre gardés) et peut réessayer. Même règle depuis la galerie.
 - **Alertes** (tableau de bord de l'administration, et bouton Imprimer désactivé si besoin) : imprimante
   éteinte ou débranchée, capot ouvert, bourrage, papier ou ruban terminé, papier bientôt terminé
   (moins de 30 tirages), impressions en attente. Le tableau de bord affiche aussi le papier restant et le

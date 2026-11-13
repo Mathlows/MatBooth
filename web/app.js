@@ -25,7 +25,11 @@ const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
 async function api(chemin, options = {}) {
   const reponse = await fetch(chemin, { headers: { "Content-Type": "application/json" }, ...options });
   const donnees = await reponse.json().catch(() => ({}));
-  if (!reponse.ok) throw new Error(donnees.erreur || "Un problème est survenu.");
+  if (!reponse.ok) {
+    const probleme = new Error(donnees.erreur || "Un problème est survenu.");
+    probleme.statut = reponse.status; // 409 : imprimante occupée, on peut réessayer
+    throw probleme;
+  }
   return donnees;
 }
 const envoyer = (chemin, corps = {}, methode = "POST") =>
@@ -204,6 +208,12 @@ async function imprimerGalerie() {
     await envoyer(`/api/galerie/${photoGalerie.id}/imprimer`, { copies });
     merci("Votre photo s'imprime !", "Elle sera prête dans quelques instants.");
   } catch (e) {
+    if (e.statut === 409) {
+      afficher("photo-galerie"); // imprimante occupée : on reste sur la photo
+      relancerGalerie();
+      erreur(e.message);
+      return;
+    }
     erreur(e.message);
     occupe = false;
     await ouvrirGalerie();
@@ -590,7 +600,16 @@ const imprimer = () =>
       if (!copies) return;
     }
     attente("Envoi à l'imprimante…");
-    await envoyer(`/api/seances/${seance.id}/imprimer`, { ...choix, copies });
+    try {
+      await envoyer(`/api/seances/${seance.id}/imprimer`, { ...choix, copies });
+    } catch (e) {
+      if (e.statut !== 409) throw e;
+      // File d'impression pleine : le client reste sur sa photo (filtre et cadre gardés) et peut réessayer.
+      afficher("resultat");
+      relancerInactivite();
+      erreur(e.message);
+      return;
+    }
     merci("Votre photo s'imprime !", "Elle sera prête dans quelques instants.");
   });
 
