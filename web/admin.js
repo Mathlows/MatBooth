@@ -254,9 +254,10 @@ function remplirFormulaire(ev) {
   $("ev-limite").value = p.limite_impressions;
   $("ev-inactivite").value = p.delai_inactivite_resultat;
   $("ev-miroir").checked = p.apercu_miroir;
-  for (const cle of ["qr", "email", "usb"]) $(`ev-partage-${cle}`).checked = p.partage[cle];
-  $("ev-galerie").checked = p.galerie.active;
-  $("ev-galerie-suppression").checked = p.galerie.suppression;
+  // Tolérant : une option absente (serveur d'une autre version) ne doit pas empêcher d'afficher le reste.
+  for (const cle of ["qr", "email", "usb"]) $(`ev-partage-${cle}`).checked = Boolean(p.partage?.[cle]);
+  $("ev-galerie").checked = Boolean(p.galerie?.active);
+  $("ev-galerie-suppression").checked = Boolean(p.galerie?.suppression);
 
   $("ev-modes").replaceChildren(...catalogue.modes.map((m) =>
     puce("checkbox", "mode", m.id, p.modes_actifs.includes(m.id), m.nom)
