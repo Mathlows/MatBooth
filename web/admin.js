@@ -716,25 +716,26 @@ const champTexte = (e) =>
   e && !e.readOnly && !e.disabled &&
   (e.tagName === "TEXTAREA" || (e.tagName === "INPUT" && ["text", "email", "password", "number", "search", "url", ""].includes(e.type)));
 
+// Les champs e-mail et nombre ne donnent pas la position du curseur (selectionStart vaut null) :
+// on y ajoute et on efface à la fin du texte.
+const curseurAccessible = (c) => typeof c.selectionStart === "number";
+
 function insererTexte(texte) {
   const c = champClavier;
   if (!c) return;
-  try {
-    c.setRangeText(texte, c.selectionStart, c.selectionEnd, "end");
-  } catch {
-    c.value += texte; // champs e-mail et nombre : pas de curseur accessible, on ajoute à la fin
-  }
+  if (curseurAccessible(c)) c.setRangeText(texte, c.selectionStart, c.selectionEnd, "end");
+  else c.value += texte;
   c.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function effacerTexte() {
   const c = champClavier;
   if (!c) return;
-  try {
+  if (curseurAccessible(c)) {
     const debut = c.selectionStart, fin = c.selectionEnd;
     if (debut !== fin) c.setRangeText("", debut, fin, "end");
     else if (debut > 0) c.setRangeText("", debut - 1, debut, "end");
-  } catch {
+  } else {
     c.value = c.value.slice(0, -1);
   }
   c.dispatchEvent(new Event("input", { bubbles: true }));
