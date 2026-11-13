@@ -6,7 +6,7 @@ import logging
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
@@ -40,6 +40,35 @@ class ChoixImpression(ChoixFinal):
 
 class ChoixEmail(ChoixFinal):
     adresse: str = Field(max_length=254)
+
+
+class Copies(BaseModel):
+    copies: int = Field(1, ge=1)
+
+
+class AdresseEmail(BaseModel):
+    adresse: str = Field(max_length=254)
+
+
+def ecran_borne(request: Request) -> None:
+    """La galerie n'est servie qu'à l'écran de la borne : pas aux téléphones du réseau (Wi-Fi de la borne compris)."""
+    if not request.client or request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(403, "La galerie n'est accessible que sur l'écran de la borne.")
+
+
+def reponse_qr(cabine: Cabine, jeton: str) -> dict:
+    """QR code d'un lien de téléchargement, et celui du Wi-Fi à rejoindre."""
+    wifi_borne = cabine.wifi.etat()
+    url = f"{url_borne(cabine, wifi_borne)}/p/{jeton}"
+    # Réseau à rejoindre : celui de la borne s'il est actif, sinon celui indiqué par le loueur.
+    if wifi_borne["actif"]:
+        nom, mot_de_passe = cabine.reglages["wifi_borne"]["nom"], cabine.reglages["wifi_borne"]["mot_de_passe"]
+    else:
+        nom, mot_de_passe = cabine.reglages["reseau"]["wifi_nom"].strip(), cabine.reglages["reseau"]["wifi_mot_de_passe"]
+    wifi = None
+    if nom:
+        wifi = {"nom": nom, "mot_de_passe": mot_de_passe, "qr": partage.qr_wifi_svg(nom, mot_de_passe)}
+    return {"url": url, "qr": partage.qr_svg(url), "wifi": wifi, "borne": wifi_borne["actif"]}
 
 
 def url_borne(cabine: Cabine, wifi_borne: dict | None = None) -> str:
@@ -212,18 +241,41 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
     @app.post("/api/seances/{seance_id}/qr")
     def qr(request: Request, seance_id: str, choix: ChoixFinal):
         cabine = c(request)
-        jeton = cabine.lien_telechargement(seance_id, choix.filtre, choix.cadre)
-        wifi_borne = cabine.wifi.etat()
-        url = f"{url_borne(cabine, wifi_borne)}/p/{jeton}"
-        # Réseau à rejoindre : celui de la borne s'il est actif, sinon celui indiqué par le loueur.
-        if wifi_borne["actif"]:
-            nom, mot_de_passe = cabine.reglages["wifi_borne"]["nom"], cabine.reglages["wifi_borne"]["mot_de_passe"]
-        else:
-            nom, mot_de_passe = cabine.reglages["reseau"]["wifi_nom"].strip(), cabine.reglages["reseau"]["wifi_mot_de_passe"]
-        wifi = None
-        if nom:
-            wifi = {"nom": nom, "mot_de_passe": mot_de_passe, "qr": partage.qr_wifi_svg(nom, mot_de_passe)}
-        return {"url": url, "qr": partage.qr_svg(url), "wifi": wifi, "borne": wifi_borne["actif"]}
+        return reponse_qr(cabine, cabine.lien_telechargement(seance_id, choix.filtre, choix.cadre))
+
+    # Galerie de l'événement, sur l'écran de la borne seulement.
+    galerie = Depends(ecran_borne)
+
+    @app.get("/api/galerie", dependencies=[galerie])
+    def photos_galerie(request: Request):
+        return c(request).photos_galerie()
+
+    @app.get("/api/galerie/{photo_id}/miniature.jpg", dependencies=[galerie])
+    def miniature_galerie(request: Request, photo_id: int):
+        c(request).fichier_galerie(photo_id)
+        return FileResponse(request.app.state.gestion.miniature(photo_id), headers={"Cache-Control": "private, max-age=3600"})
+
+    @app.get("/api/galerie/{photo_id}.jpg", dependencies=[galerie])
+    def photo_galerie(request: Request, photo_id: int):
+        return FileResponse(c(request).fichier_galerie(photo_id), media_type="image/jpeg")
+
+    @app.post("/api/galerie/{photo_id}/imprimer", dependencies=[galerie])
+    def imprimer_galerie(request: Request, photo_id: int, choix: Copies):
+        return {"ok": True, "impressions_restantes": c(request).imprimer_galerie(photo_id, choix.copies)}
+
+    @app.post("/api/galerie/{photo_id}/qr", dependencies=[galerie])
+    def qr_galerie(request: Request, photo_id: int):
+        cabine = c(request)
+        return reponse_qr(cabine, cabine.lien_galerie(photo_id))
+
+    @app.post("/api/galerie/{photo_id}/email", dependencies=[galerie])
+    def email_galerie(request: Request, photo_id: int, choix: AdresseEmail):
+        return {"adresses": c(request).email_galerie(photo_id, choix.adresse)}
+
+    @app.delete("/api/galerie/{photo_id}", dependencies=[galerie])
+    def supprimer_galerie(request: Request, photo_id: int):
+        c(request).supprimer_galerie(photo_id)
+        return {"ok": True}
 
     # Portail du Wi-Fi de la borne : s'ouvre tout seul sur le téléphone qui rejoint le réseau.
     @app.get("/portail", response_class=HTMLResponse)

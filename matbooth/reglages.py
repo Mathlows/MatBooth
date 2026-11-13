@@ -55,6 +55,8 @@ PROFIL_DEFAUT = {
     "ajustements": {"luminosite": 1.0, "contraste": 1.0, "saturation": 1.0},
     # Envoi des photos aux clients (chaque option s'active pour l'événement).
     "partage": {"qr": False, "email": False, "usb": False},
+    # Galerie de l'événement sur l'écran de la borne (réimprimer, envoyer, et éventuellement effacer).
+    "galerie": {"active": False, "suppression": False},
 }
 
 

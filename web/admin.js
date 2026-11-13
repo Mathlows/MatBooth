@@ -255,6 +255,8 @@ function remplirFormulaire(ev) {
   $("ev-inactivite").value = p.delai_inactivite_resultat;
   $("ev-miroir").checked = p.apercu_miroir;
   for (const cle of ["qr", "email", "usb"]) $(`ev-partage-${cle}`).checked = p.partage[cle];
+  $("ev-galerie").checked = p.galerie.active;
+  $("ev-galerie-suppression").checked = p.galerie.suppression;
 
   $("ev-modes").replaceChildren(...catalogue.modes.map((m) =>
     puce("checkbox", "mode", m.id, p.modes_actifs.includes(m.id), m.nom)
@@ -336,6 +338,7 @@ $("form-evenement").onsubmit = (e) => {
       cadres_actifs: cadres.length === cadresConnus.length ? null : cadres,
       ajustements: ajustements(),
       partage: Object.fromEntries(["qr", "email", "usb"].map((c) => [c, $(`ev-partage-${c}`).checked])),
+      galerie: { active: $("ev-galerie").checked, suppression: $("ev-galerie-suppression").checked },
     };
     if (!profil.modes_actifs.length) throw new Error("Gardez au moins un mode photo.");
     await envoyer(`/api/admin/evenements/${encodeURIComponent(evenementEdite.id)}`, { nom: $("ev-nom").value, profil }, "PUT");

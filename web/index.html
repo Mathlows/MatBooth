@@ -15,6 +15,46 @@
     <h1 id="titre-evenement">&nbsp;</h1>
     <p class="consigne">Choisissez votre photo</p>
     <div id="modes" class="modes"></div>
+    <button id="btn-galerie" class="bouton-galerie" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+      Galerie des photos
+    </button>
+  </section>
+
+  <!-- Galerie de l'événement -->
+  <section id="ecran-galerie" class="ecran">
+    <header class="entete-galerie">
+      <button id="btn-galerie-accueil" class="bouton discret">‹ Accueil</button>
+      <h2>Galerie</h2>
+      <span class="espace-entete"></span>
+    </header>
+    <div id="grille-galerie" class="grille-galerie"></div>
+    <p id="galerie-vide" class="consigne" hidden>Pas encore de photo pour cet événement.</p>
+  </section>
+
+  <!-- Une photo de la galerie -->
+  <section id="ecran-photo-galerie" class="ecran">
+    <div class="resultat-photo">
+      <img id="image-galerie" alt="Photo de la galerie">
+    </div>
+    <aside class="resultat-panneau">
+      <h2>Photo de la galerie</h2>
+      <div class="actions">
+        <div id="actions-galerie-partage" class="actions-partage">
+          <button id="btn-galerie-qr" class="bouton partage"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+            Sur mon téléphone
+          </button>
+          <button id="btn-galerie-email" class="bouton partage"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 6.5 9 6.5 9-6.5"/></svg>
+            Par e-mail
+          </button>
+        </div>
+        <p id="info-galerie-partage" class="info"></p>
+        <button id="btn-galerie-imprimer" class="bouton principal">Imprimer</button>
+        <p id="info-galerie" class="info"></p>
+        <button id="btn-galerie-liste" class="bouton">Retour à la galerie</button>
+        <button id="btn-galerie-supprimer" class="bouton discret danger">Effacer cette photo</button>
+      </div>
+    </aside>
   </section>
 
   <!-- Prise de vue -->

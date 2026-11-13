@@ -144,6 +144,7 @@ class Cabine:
             "filtres": [{"id": f, "nom": images.FILTRES[f]} for f in self.filtres_actifs()],
             "camera": {"nom": self.camera.nom, **self.camera.etat()},
             "imprimante": {"nom": self.imprimante.nom, **self.imprimante.etat()},
+            "galerie": {"active": r["galerie"]["active"], "suppression": r["galerie"]["suppression"]},
             "partage": {
                 "qr": r["partage"]["qr"],
                 # Proposé seulement si les e-mails peuvent réellement partir un jour.
@@ -306,13 +307,16 @@ class Cabine:
             raise ErreurCabine("Le téléchargement par QR code n'est pas activé.")
         with self._verrou:
             seance = self.garder(seance_id, filtre, cadre_id)
-            jeton = self.base.lien_de_photo(seance.photo_id)
-            if jeton is None:
-                jeton = secrets.token_urlsafe(16)
-                self.base.ajouter_lien(jeton, seance.photo_id)
-            # Photo proposée par le portail du Wi-Fi de la borne : celle affichée en QR code à l'instant.
-            self._dernier_partage = (jeton, time.monotonic())
-            return jeton
+            return self._lien_photo(seance.photo_id)
+
+    def _lien_photo(self, photo_id: int) -> str:
+        jeton = self.base.lien_de_photo(photo_id)
+        if jeton is None:
+            jeton = secrets.token_urlsafe(16)
+            self.base.ajouter_lien(jeton, photo_id)
+        # Photo proposée par le portail du Wi-Fi de la borne : celle affichée en QR code à l'instant.
+        self._dernier_partage = (jeton, time.monotonic())
+        return jeton
 
     def photo_du_portail(self, duree: float = 600) -> str | None:
         """Jeton de la dernière photo affichée en QR code (dans les 10 dernières minutes), si elle existe encore."""
@@ -323,20 +327,28 @@ class Cabine:
 
     def demander_email(self, seance_id: str, filtre: str, cadre_id: str | None, adresse: str) -> list[str]:
         """Met la photo en file d'attente pour cette adresse. Renvoie les adresses déjà demandées."""
+        adresse = self._verifier_email(adresse)
+        with self._verrou:
+            seance = self.garder(seance_id, filtre, cadre_id)
+            return self._email_photo(seance.photo_id, adresse)
+
+    def _verifier_email(self, adresse: str) -> str:
         if not self.etat_partage_email():
             raise ErreurCabine("L'envoi par e-mail n'est pas disponible.")
         adresse = adresse.strip()
         if not partage.adresse_email_valide(adresse):
             raise ErreurCabine("Cette adresse e-mail ne semble pas valide.")
-        with self._verrou:
-            seance = self.garder(seance_id, filtre, cadre_id)
-            deja = self.base.adresses_envoi(seance.photo_id)
-            if adresse.lower() in (a.lower() for a in deja):
-                return deja
-            if len(deja) >= _EMAILS_MAX_PAR_PHOTO:
-                raise ErreurCabine(f"{_EMAILS_MAX_PAR_PHOTO} adresses au maximum par photo.")
-            self.base.ajouter_envoi(seance.photo_id, self.evenement, adresse)
-            return deja + [adresse]
+        return adresse
+
+    def _email_photo(self, photo_id: int, adresse: str) -> list[str]:
+        deja = self.base.adresses_envoi(photo_id)
+        if adresse.lower() in (a.lower() for a in deja):
+            return deja
+        if len(deja) >= _EMAILS_MAX_PAR_PHOTO:
+            raise ErreurCabine(f"{_EMAILS_MAX_PAR_PHOTO} adresses au maximum par photo.")
+        self.base.ajouter_envoi(photo_id, self.evenement, adresse)
+        self.emails.reveiller()
+        return deja + [adresse]
 
     def etat_partage_email(self) -> bool:
         return self.profil["partage"]["email"] and partage.smtp_configure(self.reglages["smtp"])
@@ -363,6 +375,92 @@ class Cabine:
                 self.base.supprimer_photo(seance.photo_id)  # e-mails en attente et lien compris
                 journal.info("Photo partagée puis supprimée par le client : %s", fichier.name)
             self._effacer(seance)
+
+    # --- Galerie de l'événement (écran de la borne) ------------------------
+
+    def _photo_galerie(self, photo_id: int) -> tuple[dict, Path]:
+        """Photo de l'événement actif, si la galerie est ouverte et que le fichier existe."""
+        if not self.profil["galerie"]["active"]:
+            raise ErreurCabine("La galerie n'est pas activée.")
+        photo = self.base.photo(photo_id)
+        if photo is None or photo["evenement"] != self.evenement:
+            raise ErreurCabine("Photo introuvable.")
+        fichier = self.dossier_donnees / photo["fichier"]
+        if not fichier.exists():
+            raise ErreurCabine("Photo introuvable.")
+        if photo_id == self.photo_en_cours():
+            raise ErreurCabine("Cette photo est en cours de finalisation.")
+        return photo, fichier
+
+    def photos_galerie(self) -> list[dict]:
+        if not self.profil["galerie"]["active"]:
+            raise ErreurCabine("La galerie n'est pas activée.")
+        maximum = self.profil["copies_max_par_photo"]
+        en_cours = self.photo_en_cours()
+        return [
+            {
+                "id": p["id"],
+                "mode": p["mode"],
+                "bande": bool(images.MODES.get(p["mode"], {}).get("bande")),
+                "cree_le": p["cree_le"],
+                "impressions": p["impressions"],
+                "restantes": max(0, maximum - p["impressions"]),
+            }
+            for p in self.base.lister_photos(self.evenement)
+            if p["id"] != en_cours and (self.dossier_donnees / p["fichier"]).exists()
+        ]
+
+    def fichier_galerie(self, photo_id: int) -> Path:
+        return self._photo_galerie(photo_id)[1]
+
+    def imprimer_galerie(self, photo_id: int, copies: int) -> int | None:
+        """Réimpression depuis la galerie : au plus « exemplaires max » par photo, impressions déjà faites comprises."""
+        with self._verrou:
+            photo, fichier = self._photo_galerie(photo_id)
+            deja = next((p["impressions"] for p in self.base.lister_photos(self.evenement) if p["id"] == photo_id), 0)
+            restantes_photo = self.profil["copies_max_par_photo"] - deja
+            if restantes_photo <= 0:
+                raise ErreurCabine("Cette photo a déjà été imprimée le nombre de fois autorisé.")
+            if not 1 <= copies <= restantes_photo:
+                raise ErreurCabine("Nombre de copies non autorisé.")
+            restantes = self.impressions_restantes()
+            if restantes is not None and copies > restantes:
+                raise ErreurCabine("La limite d'impressions est atteinte.")
+            try:
+                self.imprimante.imprimer(fichier, copies, bandes=bool(images.MODES.get(photo["mode"], {}).get("bande")))
+            except ErreurImprimante as erreur:
+                raise ErreurCabine(str(erreur)) from erreur
+            except Exception as erreur:
+                journal.exception("Échec de l'impression depuis la galerie")
+                raise ErreurCabine("L'impression a échoué.") from erreur
+            self.base.ajouter_impression(photo_id, self.evenement, copies)
+            journal.info("Photo %s réimprimée depuis la galerie (x%d)", photo_id, copies)
+            return self.impressions_restantes()
+
+    def lien_galerie(self, photo_id: int) -> str:
+        if not self.profil["partage"]["qr"]:
+            raise ErreurCabine("Le téléchargement par QR code n'est pas activé.")
+        with self._verrou:
+            self._photo_galerie(photo_id)
+            return self._lien_photo(photo_id)
+
+    def email_galerie(self, photo_id: int, adresse: str) -> list[str]:
+        adresse = self._verifier_email(adresse)
+        with self._verrou:
+            self._photo_galerie(photo_id)
+            return self._email_photo(photo_id, adresse)
+
+    def supprimer_galerie(self, photo_id: int) -> None:
+        """Un invité efface une photo depuis la galerie (si l'événement l'autorise) : elle disparaît partout."""
+        if not self.profil["galerie"]["suppression"]:
+            raise ErreurCabine("La suppression n'est pas autorisée.")
+        with self._verrou:
+            photo, fichier = self._photo_galerie(photo_id)
+            (fichier.parent.parent / "miniatures" / fichier.name).unlink(missing_ok=True)
+            fichier.unlink(missing_ok=True)
+            self.base.supprimer_photo(photo_id)  # e-mails en attente et lien compris
+            self.usb.effacer(photo["evenement"], fichier.name)
+            journal.info("Photo %s effacée depuis la galerie", photo_id)
 
     def _effacer(self, seance: Seance) -> None:
         shutil.rmtree(seance.dossier, ignore_errors=True)

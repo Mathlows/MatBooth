@@ -81,6 +81,11 @@ class Partage(BaseModel):
     usb: bool = False
 
 
+class Galerie(BaseModel):
+    active: bool = False
+    suppression: bool = False
+
+
 class Profil(BaseModel):
     compte_a_rebours: int = Field(3, ge=1, le=10)
     modes_actifs: list[str]
@@ -92,6 +97,7 @@ class Profil(BaseModel):
     delai_inactivite_resultat: int = Field(90, ge=15, le=600)
     ajustements: Ajustements = Ajustements()
     partage: Partage = Partage()
+    galerie: Galerie = Galerie()
 
 
 class ModificationEvenement(BaseModel):

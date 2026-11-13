@@ -8,6 +8,15 @@ let seance = null;      // { id, mode, total, cadres }
 let choix = { filtre: "aucun", cadre: null };
 let occupe = false;
 let minuteurInactivite = null;
+let photoGalerie = null;  // photo ouverte dans la galerie : { id, restantes, impressions, emails }
+let minuteurGalerie = null;
+
+/** QR code et e-mail visent la séance en cours, ou la photo ouverte dans la galerie. */
+function cibleEnvoi() {
+  if (photoGalerie) return { chemin: `/api/galerie/${photoGalerie.id}`, corps: {} };
+  if (seance) return { chemin: `/api/seances/${seance.id}`, corps: choix };
+  return null;
+}
 
 // ---------- Outils ----------
 
@@ -26,6 +35,10 @@ function afficher(nom) {
   document.querySelectorAll(".ecran").forEach((e) => e.classList.toggle("actif", e.id === `ecran-${nom}`));
   if (nom !== "capture") $("apercu").src = IMAGE_VIDE; // coupe le flux de l'aperçu
   if (nom !== "resultat") arreterInactivite();
+  if (nom !== "galerie" && nom !== "photo-galerie") {
+    clearTimeout(minuteurGalerie);
+    minuteurGalerie = null;
+  }
 }
 
 function erreur(message) {
@@ -65,6 +78,7 @@ function demander(texte, boutons) {
 
 async function retourAccueil() {
   seance = null;
+  photoGalerie = null;
   $("modale").hidden = true;
   $("fenetre-qr").hidden = true;
   $("fenetre-email").hidden = true;
@@ -90,6 +104,130 @@ async function retourAccueil() {
     bouton.onclick = () => demarrer(mode.id);
     zone.appendChild(bouton);
   }
+  $("btn-galerie").hidden = !(etat.galerie && etat.galerie.active);
+}
+
+// ---------- Galerie de l'événement ----------
+
+function relancerGalerie() {
+  clearTimeout(minuteurGalerie);
+  minuteurGalerie = setTimeout(retourAccueil, (etat.delai_inactivite_resultat || 90) * 1000);
+}
+
+async function ouvrirGalerie() {
+  if (occupe) return;
+  photoGalerie = null;
+  let photos;
+  try {
+    etat = await api("/api/etat"); // état de l'imprimante à jour
+    photos = await api("/api/galerie");
+  } catch (e) {
+    erreur(e.message);
+    return;
+  }
+  $("grille-galerie").replaceChildren(...photos.map((p) => {
+    const b = document.createElement("button");
+    b.className = "vignette-galerie";
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.src = `/api/galerie/${p.id}/miniature.jpg`;
+    b.appendChild(img);
+    if (p.impressions) {
+      const pastille = document.createElement("span");
+      pastille.className = "pastille";
+      pastille.textContent = `Imprimée ${p.impressions}×`;
+      b.appendChild(pastille);
+    }
+    b.onclick = () => ouvrirPhotoGalerie(p);
+    return b;
+  }));
+  $("galerie-vide").hidden = photos.length > 0;
+  afficher("galerie");
+  relancerGalerie();
+}
+
+function ouvrirPhotoGalerie(p) {
+  photoGalerie = { ...p, emails: [] };
+  $("image-galerie").src = `/api/galerie/${p.id}.jpg`;
+  majPhotoGalerie();
+  afficher("photo-galerie");
+  relancerGalerie();
+}
+
+function copiesPossiblesGalerie() {
+  let maximum = photoGalerie.restantes;
+  if (etat.impressions_restantes !== null) maximum = Math.min(maximum, etat.impressions_restantes);
+  return maximum;
+}
+
+function majPhotoGalerie() {
+  const p = photoGalerie;
+  const options = etat.partage || {};
+  $("btn-galerie-qr").hidden = !options.qr;
+  $("btn-galerie-email").hidden = !options.email;
+  $("actions-galerie-partage").hidden = !(options.qr || options.email);
+  $("btn-galerie-supprimer").hidden = !(etat.galerie && etat.galerie.suppression);
+  $("info-galerie-partage").textContent = p.emails.length ? `Envoi prévu à : ${p.emails.join(", ")}` : "";
+
+  const bouton = $("btn-galerie-imprimer");
+  const info = $("info-galerie");
+  bouton.disabled = false;
+  info.textContent = "";
+  if (!etat.imprimante.ok) {
+    bouton.disabled = true;
+    info.textContent = "Imprimante indisponible pour le moment.";
+  } else if (p.restantes <= 0) {
+    bouton.disabled = true;
+    info.textContent = `Déjà imprimée ${p.impressions} fois : c'est le maximum pour une photo.`;
+  } else if (copiesPossiblesGalerie() <= 0) {
+    bouton.disabled = true;
+    info.textContent = "Le nombre maximum d'impressions est atteint.";
+  } else if (p.impressions) {
+    info.textContent = `Déjà imprimée ${p.impressions} fois.`;
+  }
+}
+
+async function imprimerGalerie() {
+  if (occupe || !photoGalerie) return;
+  occupe = true;
+  try {
+    const maximum = copiesPossiblesGalerie();
+    let copies = 1;
+    if (maximum > 1) {
+      const boutons = [];
+      for (let n = 1; n <= maximum; n++) boutons.push({ texte: `${n}`, valeur: n, style: "principal" });
+      boutons.push({ texte: "Annuler", valeur: 0 });
+      copies = await demander("Combien d'exemplaires ?", boutons);
+      if (!copies) return relancerGalerie();
+    }
+    attente("Envoi à l'imprimante…");
+    await envoyer(`/api/galerie/${photoGalerie.id}/imprimer`, { copies });
+    merci("Votre photo s'imprime !", "Elle sera prête dans quelques instants.");
+  } catch (e) {
+    erreur(e.message);
+    occupe = false;
+    await ouvrirGalerie();
+  } finally {
+    occupe = false;
+  }
+}
+
+async function supprimerGalerie() {
+  if (occupe || !photoGalerie) return;
+  occupe = true;
+  try {
+    const oui = await demander("Effacer définitivement cette photo ? Elle ne pourra plus être imprimée ni envoyée.", [
+      { texte: "Annuler", valeur: false },
+      { texte: "Effacer", valeur: true, style: "danger" },
+    ]);
+    if (!oui) return relancerGalerie();
+    await envoyer(`/api/galerie/${photoGalerie.id}`, {}, "DELETE");
+  } catch (e) {
+    erreur(e.message);
+  } finally {
+    occupe = false;
+  }
+  if ($("ecran-photo-galerie").classList.contains("actif")) await ouvrirGalerie();
 }
 
 // ---------- Prise de vue ----------
@@ -281,10 +419,11 @@ function gras(texte) {
 }
 
 async function ouvrirQr() {
-  if (occupe || !seance) return;
+  const cible = cibleEnvoi();
+  if (occupe || !cible) return;
   occupe = true;
   try {
-    const r = await envoyer(`/api/seances/${seance.id}/qr`, choix);
+    const r = await envoyer(`${cible.chemin}/qr`, cible.corps);
     const etapes = [];
     if (r.wifi && r.borne) {
       // Wi-Fi de la borne : la photo s'ouvre dans la page « Se connecter au réseau » (portail).
@@ -361,7 +500,7 @@ function construireClavier() {
 }
 
 function ouvrirEmail() {
-  if (occupe || !seance) return;
+  if (occupe || !cibleEnvoi()) return;
   texteEmail = "";
   majSaisieEmail();
   $("fenetre-email").hidden = false;
@@ -372,17 +511,23 @@ function fermerEmail() {
 }
 
 async function envoyerEmail() {
-  if (occupe || !seance) return;
+  const cible = cibleEnvoi();
+  if (occupe || !cible) return;
   if (!FORME_EMAIL.test(texteEmail)) {
     majSaisieEmail("Cette adresse e-mail ne semble pas complète.", true);
     return;
   }
   occupe = true;
   try {
-    const r = await envoyer(`/api/seances/${seance.id}/email`, { ...choix, adresse: texteEmail });
-    seance.emails = r.adresses;
+    const r = await envoyer(`${cible.chemin}/email`, { ...cible.corps, adresse: texteEmail });
     fermerEmail();
-    majPartage();
+    if (photoGalerie) {
+      photoGalerie.emails = r.adresses;
+      majPhotoGalerie();
+    } else {
+      seance.emails = r.adresses;
+      majPartage();
+    }
   } catch (e) {
     majSaisieEmail(e.message, true);
   } finally {
@@ -499,6 +644,13 @@ $("btn-terminer").onclick = terminer;
 $("btn-reprendre").onclick = recommencer;
 $("btn-supprimer").onclick = supprimer;
 $("btn-qr").onclick = ouvrirQr;
+$("btn-galerie").onclick = ouvrirGalerie;
+$("btn-galerie-accueil").onclick = retourAccueil;
+$("btn-galerie-liste").onclick = ouvrirGalerie;
+$("btn-galerie-imprimer").onclick = imprimerGalerie;
+$("btn-galerie-supprimer").onclick = supprimerGalerie;
+$("btn-galerie-qr").onclick = ouvrirQr;
+$("btn-galerie-email").onclick = ouvrirEmail;
 $("btn-fermer-qr").onclick = () => ($("fenetre-qr").hidden = true);
 $("btn-email").onclick = ouvrirEmail;
 $("btn-annuler-email").onclick = fermerEmail;
@@ -506,6 +658,7 @@ $("btn-envoyer-email").onclick = envoyerEmail;
 construireClavier();
 
 document.addEventListener("pointerdown", () => {
+  if (minuteurGalerie) relancerGalerie();
   if (minuteurInactivite) relancerInactivite();
 });
 document.addEventListener("contextmenu", (e) => e.preventDefault());

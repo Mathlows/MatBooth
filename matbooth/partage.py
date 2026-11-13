@@ -422,6 +422,17 @@ class SauvegardeUSB:
             }
             return copiees
 
+    def effacer(self, evenement: str, nom_fichier: str) -> None:
+        """Retire une photo des clés branchées (photo effacée depuis la galerie)."""
+        relatif = f"{self.DOSSIER}/{evenement}/{nom_fichier}"
+        with self._verrou:
+            for cle in self._trouver_cles():
+                try:
+                    (cle / relatif).unlink(missing_ok=True)
+                except OSError as erreur:
+                    journal.warning("Impossible d'effacer %s sur la clé %s : %s", relatif, cle.name, erreur)
+                self._copies.get(cle, {}).pop(relatif, None)
+
     def etat(self) -> dict:
         actif = self.cabine.profil["partage"]["usb"]
         bilan = self._dernier_bilan

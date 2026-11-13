@@ -124,6 +124,21 @@ Trois options, à activer **pour chaque événement** (onglet Événements, « E
   `Matbooth/<événement>/`. On peut la brancher en cours de route : ce qui manque est copié. Chaque fichier
   est écrit sur la clé immédiatement, on peut la retirer sans « éjecter » (en évitant de le faire pendant une copie).
 
+### Galerie pour les invités
+
+Option par événement (onglet Événements › « Galerie pour les invités ») : un bouton **Galerie des photos**
+apparaît sur l'accueil. Les invités y retrouvent les photos de l'événement et peuvent :
+
+- les **réimprimer**, au plus « exemplaires max par photo » au total pour une même photo (impressions déjà
+  faites comprises) et dans la limite d'impressions de l'événement ;
+- les récupérer **sur leur téléphone** ou **par e-mail**, si ces options sont cochées pour l'événement ;
+- les **effacer**, seulement si l'option « Permettre aux invités d'effacer des photos » est cochée (désactivée
+  par défaut : n'importe quel invité pourrait effacer n'importe quelle photo). Une photo effacée disparaît
+  de la borne, des e-mails en attente, du lien QR et de la clé USB si elle est branchée.
+
+La galerie n'est accessible que **sur l'écran de la borne** : les téléphones du réseau (Wi-Fi de la borne
+compris) ne peuvent ni la voir ni effacer de photo. Retour automatique à l'accueil après le délai d'inactivité.
+
 Une photo n'est envoyée par e-mail ou copiée sur clé USB **qu'une fois la séance du client terminée** : tant qu'il
 est devant l'écran, il peut encore la supprimer, et une photo supprimée ne quitte jamais la borne.
 Le tableau de bord indique les e-mails envoyés / en attente (avec la dernière erreur) et l'état de la clé USB.

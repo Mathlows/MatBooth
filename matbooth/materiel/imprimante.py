@@ -88,9 +88,11 @@ class ImprimanteSimulee(Imprimante):
     def __init__(self, dossier: Path):
         self.dossier = dossier
         self.dossier.mkdir(parents=True, exist_ok=True)
+        self._numero = 0
 
     def imprimer(self, fichier: Path, copies: int, bandes: bool = False) -> None:
-        horodatage = time.strftime("%Y%m%d-%H%M%S")
+        self._numero += 1  # deux impressions dans la même seconde ne s'écrasent pas
+        horodatage = f"{time.strftime('%Y%m%d-%H%M%S')}-{self._numero}"
         with Image.open(fichier) as image:
             feuille = preparer_feuille(image, bandes)
         for numero in range(1, copies + 1):
