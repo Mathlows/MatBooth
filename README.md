@@ -58,6 +58,7 @@ Au démarrage, sans clavier ni souris :
 | `matbooth-surveillance.timer` (système) | Chaque minute, vérifie que le serveur répond ; s'il est bloqué, le relance (en moins d'une minute). |
 | `matbooth-ecran.service` (utilisateur) | Chromium en plein écran sur `http://localhost:8000/?kiosque=1`, relancé s'il se ferme ou plante. |
 | `matbooth-ecran-surveillance.timer` (utilisateur) | Si la page plante (« Aïe aïe aïe ») ou se fige, relance l'écran (en moins d'une minute). |
+| `matbooth-bouton.service` (système) | Bouton physique sur GPIO3 (broche 5, avec la masse) : **appui bref = redémarrer**, **maintenu 3 s = éteindre**. Borne éteinte : un appui la rallume. Ignoré les 30 s qui suivent le démarrage. |
 
 Le script installe aussi les paquets (gphoto2, Gutenprint), l'environnement Python, la file d'impression DNP
 si l'imprimante est branchée, désactive la mise en veille de l'écran, et autorise l'administration à
@@ -76,6 +77,9 @@ sudo systemctl restart matbooth            # relancer le serveur
 ```
 
 Réglages propres à la borne (port, type d'appareil…) : `/etc/default/matbooth`, puis `sudo systemctl restart matbooth`.
+Pour essayer le bouton sans rien éteindre :
+`sudo systemctl stop matbooth-bouton && sudo env MATBOOTH_BOUTON_ESSAI=1 PYTHONPATH=$PWD python3 -m matbooth.bouton`
+(puis `sudo systemctl start matbooth-bouton`).
 
 ## Administration
 

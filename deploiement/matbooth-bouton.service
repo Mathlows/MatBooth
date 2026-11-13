@@ -1,0 +1,17 @@
+# Bouton physique de la borne (GPIO3) : bref = redémarrer, maintenu 3 s = éteindre.
+# Installé dans /etc/systemd/system par deploiement/installer.sh.
+[Unit]
+Description=Matbooth : bouton marche / arrêt
+StartLimitIntervalSec=0
+
+[Service]
+Environment=PYTHONPATH=@RACINE@
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/etc/default/matbooth
+# Python du système : il fournit gpiod (paquet python3-libgpiod).
+ExecStart=/usr/bin/python3 -m matbooth.bouton
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

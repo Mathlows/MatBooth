@@ -34,7 +34,7 @@ remplir() {  # remplace @RACINE@ et @UTILISATEUR@ dans un modèle
 etape() { echo; echo "==> $*"; }
 
 etape "Paquets système"
-apt-get install -y --no-install-recommends gphoto2 printer-driver-gutenprint cups curl python3-venv iw
+apt-get install -y --no-install-recommends gphoto2 printer-driver-gutenprint cups curl python3-venv iw python3-libgpiod
 
 etape "Environnement Python"
 if [ ! -x "${RACINE}/.venv/bin/python" ]; then
@@ -66,6 +66,8 @@ etape "Serveur et surveillance (services système)"
 chmod +x "${DEPLOIEMENT}/lancer-ecran.sh" "${DEPLOIEMENT}/surveiller.sh" "${DEPLOIEMENT}/surveiller-ecran.sh"
 remplir "${DEPLOIEMENT}/matbooth.service" > /etc/systemd/system/matbooth.service
 remplir "${DEPLOIEMENT}/matbooth-surveillance.service" > /etc/systemd/system/matbooth-surveillance.service
+# Bouton physique (GPIO3) : bref = redémarrer, maintenu 3 s = éteindre ; borne éteinte : il la rallume.
+remplir "${DEPLOIEMENT}/matbooth-bouton.service" > /etc/systemd/system/matbooth-bouton.service
 install -m 644 "${DEPLOIEMENT}/matbooth-surveillance.timer" /etc/systemd/system/matbooth-surveillance.timer
 if [ ! -f /etc/default/matbooth ]; then
   cat > /etc/default/matbooth <<'FIN'
@@ -75,6 +77,9 @@ if [ ! -f /etc/default/matbooth ]; then
 #MATBOOTH_CAMERA=gphoto2
 #MATBOOTH_IMPRIMANTE=dnp
 #MATBOOTH_FILE_IMPRESSION=DNP_RX1
+# Bouton physique : broche GPIO et durée de l'appui long (en secondes)
+#MATBOOTH_BOUTON_GPIO=3
+#MATBOOTH_BOUTON_APPUI_LONG=3
 FIN
 fi
 
@@ -150,7 +155,7 @@ fi
 
 etape "Activation"
 systemctl daemon-reload
-systemctl enable --now matbooth.service matbooth-surveillance.timer
+systemctl enable --now matbooth.service matbooth-surveillance.timer matbooth-bouton.service
 en_utilisateur systemctl --user daemon-reload
 en_utilisateur systemctl --user enable matbooth-ecran.service
 en_utilisateur systemctl --user enable --now matbooth-ecran-surveillance.timer
