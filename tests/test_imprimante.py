@@ -118,3 +118,35 @@ def test_dnp_refuse_d_imprimer_sans_papier(monkeypatch, tmp_path):
         _dnp(monkeypatch, restant=1).imprimer(fichier, 2)
     with pytest.raises(module.ErreurImprimante):
         _dnp(monkeypatch, statut="Cover Open (5)").imprimer(fichier, 1)
+
+
+def test_appuis_multiples_sur_imprimer_un_seul_tirage(client, cabine):
+    """Trois appuis rapides sur « Imprimer » (même simultanés) : une seule impression part."""
+    import threading
+
+    from matbooth.cabine import ErreurCabine
+
+    seance = photographier(client, "unique")
+    resultats = []
+
+    def appui():
+        try:
+            cabine.imprimer(seance, "aucun", None, 1)
+            resultats.append("imprimé")
+        except ErreurCabine as erreur:
+            resultats.append(str(erreur))
+
+    fils = [threading.Thread(target=appui) for _ in range(3)]
+    for f in fils:
+        f.start()
+    for f in fils:
+        f.join()
+    assert resultats.count("imprimé") == 1
+    assert len(list(cabine.imprimante.dossier.glob("*.jpg"))) == 1
+    assert cabine.base.total_impressions(cabine.evenement) == 1
+
+    # Coup sur coup par l'écran (requêtes HTTP) : la 2e et la 3e sont refusées.
+    seance = photographier(client, "unique")
+    codes = [client.post(f"/api/seances/{seance}/imprimer", json={"copies": 1}).status_code for _ in range(3)]
+    assert codes == [200, 400, 400]
+    assert len(list(cabine.imprimante.dossier.glob("*.jpg"))) == 2
