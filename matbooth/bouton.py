@@ -22,6 +22,8 @@ PERIODE = 0.02  # s entre deux lectures (50 fois par seconde)
 STABLE = 3  # lectures identiques d'affilée pour croire à un changement (filtre les rebonds)
 APPUI_MINIMUM = 0.08  # s : en dessous, c'est un parasite
 DELAI_DEMARRAGE = 30  # s pendant lesquels le bouton est ignoré après le lancement
+ARMEMENT = 2.0  # s relâché d'affilée avant d'écouter le bouton (bouton bloqué ou mal branché : jamais armé)
+ALERTE_BLOQUE = 10.0  # s « enfoncé » sans avoir jamais été armé : on signale un problème de branchement
 
 
 class Bouton:
@@ -35,7 +37,12 @@ class Bouton:
         self._compte = 0
         self._debut: float | None = None
         self._deja_agi = False
-        self._attendre_relachement = True  # un bouton enfoncé au lancement doit d'abord être relâché
+        # Armé seulement après ARMEMENT secondes relâché : un bouton enfoncé au lancement, ou branché sur son
+        # contact « normalement fermé » (enfoncé au repos), ne déclenche jamais rien.
+        self.arme = False
+        self._relache_depuis: float | None = None
+        self._enfonce_depuis: float | None = None
+        self._alerte_faite = False
 
     def lire(self, enfonce: bool, maintenant: float) -> str | None:
         """Une lecture du bouton ; renvoie "redemarrer", "eteindre" ou None."""
@@ -50,11 +57,14 @@ class Bouton:
         self.enfonce = enfonce
         if enfonce:
             self._debut, self._deja_agi = maintenant, False
+            self._relache_depuis = None
+            self._enfonce_depuis = maintenant
             return None
         duree = maintenant - (self._debut or maintenant)
         self._debut = None
-        if self._attendre_relachement or self._deja_agi:
-            self._attendre_relachement = False
+        self._relache_depuis = maintenant
+        self._enfonce_depuis = None
+        if not self.arme or self._deja_agi:
             return None
         if maintenant < self.arme_le or duree < APPUI_MINIMUM:
             return None
@@ -63,9 +73,21 @@ class Bouton:
     def _maintenu(self, maintenant: float) -> str | None:
         if not self.enfonce:
             if self._compte >= STABLE:
-                self._attendre_relachement = False  # relâché au lancement : le bouton est armé
+                if self._relache_depuis is None:
+                    self._relache_depuis = maintenant
+                if not self.arme and maintenant - self._relache_depuis >= ARMEMENT:
+                    self.arme = True
+                    journal.info("Bouton prêt")
             return None
-        if self._attendre_relachement or self._deja_agi or self._debut is None or maintenant < self.arme_le:
+        if not self.arme:
+            if self._enfonce_depuis is None:
+                self._enfonce_depuis = maintenant
+            if not self._alerte_faite and maintenant - self._enfonce_depuis >= ALERTE_BLOQUE:
+                self._alerte_faite = True
+                journal.warning("Le bouton semble enfoncé en permanence : vérifier le branchement "
+                                "(contacts COM et NO, pas NC). Il reste inactif.")
+            return None
+        if self._deja_agi or self._debut is None or maintenant < self.arme_le:
             return None
         if maintenant - self._debut >= self.appui_long:
             self._deja_agi = True

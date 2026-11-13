@@ -77,6 +77,10 @@ sudo systemctl restart matbooth            # relancer le serveur
 ```
 
 Réglages propres à la borne (port, type d'appareil…) : `/etc/default/matbooth`, puis `sudo systemctl restart matbooth`.
+**Branchement du bouton** : un fil sur la broche **5** (GPIO3), l'autre sur la broche **6** (masse), sans
+résistance. Si le bouton a trois bornes, utiliser **COM** (vers la masse) et **NO** (vers GPIO3), jamais **NC** :
+branché sur NC, le bouton paraît enfoncé en permanence ; il reste alors inactif et le journal le signale.
+
 Pour essayer le bouton sans rien éteindre :
 `sudo systemctl stop matbooth-bouton && sudo env MATBOOTH_BOUTON_ESSAI=1 PYTHONPATH=$PWD python3 -m matbooth.bouton`
 (puis `sudo systemctl start matbooth-bouton`).
