@@ -203,3 +203,19 @@ form > .champ:first-of-type { margin-top: 0; }
 }
 
 .actions-borne .bouton { width: auto; flex: 1 1 200px; }
+
+.liste-wifi { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.reseau-wifi {
+  width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 16px; min-height: 56px;
+  background: var(--fond); border: 1px solid var(--bord); border-radius: var(--rayon); text-align: left; font-size: 17px;
+}
+.reseau-wifi.actuel { border-color: var(--succes); }
+.reseau-wifi .nom-reseau { flex: 1; font-weight: 700; }
+.barres-wifi { display: inline-flex; align-items: flex-end; gap: 3px; height: 18px; }
+.barres-wifi i { width: 5px; background: var(--bord); border-radius: 1px; }
+.barres-wifi i:nth-child(1) { height: 40%; } .barres-wifi i:nth-child(2) { height: 70%; } .barres-wifi i:nth-child(3) { height: 100%; }
+.barres-wifi i.plein { background: var(--succes); }
+.connexion-wifi { display: flex; gap: 10px; flex-wrap: wrap; padding: 10px 0 4px; }
+.connexion-wifi[hidden] { display: none; }
+.connexion-wifi input { flex: 1; min-width: 200px; }
+.connexion-wifi .bouton { width: auto; }

@@ -150,3 +150,60 @@ def test_portail_captif(cabine, monkeypatch):
     # Un appareil d'un autre réseau (box) n'est jamais redirigé.
     with TestClient(app, client=("192.168.1.50", 40000), follow_redirects=False) as autre:
         assert autre.get("/api/etat", headers={"Host": "boothv2.local:8000"}).status_code == 200
+
+
+class FauxNmcliClient(FauxNmcli):
+    """Ajoute la liste des réseaux et la connexion à un Wi-Fi."""
+
+    def __init__(self, mot_de_passe_correct="bonjour123"):
+        super().__init__()
+        self.mot_de_passe_correct = mot_de_passe_correct
+        self.profils = ["netplan-wlan0-SFR"]
+
+    def __call__(self, arguments):
+        if arguments[:4] == ["-t", "-f", "SSID,SIGNAL,SECURITY", "device"]:
+            return "Salle des fêtes:70:WPA2\nSalle des fêtes:40:WPA2\nBox\\:Maison:90:WPA2\n:20:WPA2\nGratuit:55:\n"
+        if arguments[:4] == ["-t", "-f", "ACTIVE,SSID", "device"]:
+            return "yes:Box\\:Maison\nno:Gratuit\n"
+        if arguments[:4] == ["-t", "-f", "NAME", "connection"]:
+            return "\n".join(self.profils) + "\n"
+        if arguments[:3] == ["device", "wifi", "connect"]:
+            self.commandes.append(arguments)
+            nom = arguments[3]
+            self.profils.append(nom)
+            donne = arguments[arguments.index("password") + 1] if "password" in arguments else ""
+            if donne != self.mot_de_passe_correct:
+                raise ErreurWifi("Error: Connection activation failed: Secrets were required, but not provided.")
+            return ""
+        if arguments[:3] == ["connection", "delete", "id"]:
+            self.commandes.append(arguments)
+            self.profils.remove(arguments[3])
+            return ""
+        return super().__call__(arguments)
+
+
+def test_liste_et_connexion_wifi():
+    nmcli = FauxNmcliClient()
+    wifi = WifiBorne(nmcli)
+    assert wifi.reseaux() == [
+        {"nom": "Box:Maison", "signal": 90, "protege": True},
+        {"nom": "Salle des fêtes", "signal": 70, "protege": True},
+        {"nom": "Gratuit", "signal": 55, "protege": False},
+    ]
+    assert wifi.reseau_actuel() == "Box:Maison"
+
+    with pytest.raises(ErreurWifi, match="Mot de passe incorrect"):
+        wifi.connecter("Salle des fêtes", "faux")
+    assert "Salle des fêtes" not in nmcli.profils  # profil raté retiré
+
+    wifi.connecter("Salle des fêtes", "bonjour123")
+    assert nmcli.commandes[-1] == ["device", "wifi", "connect", "Salle des fêtes", "ifname", "wlan0", "password", "bonjour123"]
+
+
+def test_connexion_depuis_le_wifi_de_la_borne():
+    nmcli = FauxNmcliClient()
+    wifi = WifiBorne(nmcli)
+    wifi.activer("Photobooth", "", delai=0)
+    wifi.connecter("Salle des fêtes", "bonjour123")
+    assert ["connection", "down", CONNEXION] in nmcli.commandes
+    assert ["connection", "modify", CONNEXION, "connection.autoconnect", "no"] in nmcli.commandes

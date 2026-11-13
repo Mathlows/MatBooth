@@ -265,6 +265,29 @@ class Gestion:
         except ErreurWifi as erreur:
             raise ErreurCabine(str(erreur)) from erreur
 
+    def reseaux_wifi(self) -> dict:
+        wifi = self.cabine.wifi
+        if wifi.etat()["actif"]:
+            return {"borne": True, "actuel": None, "reseaux": []}
+        try:
+            reseaux = wifi.reseaux()
+        except ErreurWifi as erreur:
+            raise ErreurCabine(f"Recherche des réseaux impossible : {erreur}") from erreur
+        actuel = wifi.reseau_actuel()
+        reseaux.sort(key=lambda r: r["nom"] != actuel)  # le réseau actuel en premier
+        return {"borne": False, "actuel": actuel, "reseaux": reseaux}
+
+    def connecter_wifi(self, nom: str, mot_de_passe: str) -> None:
+        if not nom.strip():
+            raise ErreurCabine("Choisissez un réseau.")
+        try:
+            self.cabine.wifi.connecter(nom, mot_de_passe)
+        except ErreurWifi as erreur:
+            raise ErreurCabine(str(erreur)) from erreur
+        # Internet est peut-être revenu : les e-mails en attente repartent.
+        self.base.relancer_envois()
+        self.cabine.emails.reveiller()
+
     def reglages_envoi(self) -> dict:
         smtp = self.cabine.reglages["smtp"]
         wifi = self.cabine.wifi.etat()

@@ -117,6 +117,11 @@ class WifiBorne(BaseModel):
     mot_de_passe: str = Field("", max_length=63)
 
 
+class ConnexionWifi(BaseModel):
+    nom: str = Field(max_length=32)
+    mot_de_passe: str = Field("", max_length=63)
+
+
 class ReglagesSmtp(BaseModel):
     hote: str = Field("", max_length=200)
     port: int = Field(587, ge=1, le=65535)
@@ -275,6 +280,15 @@ def creer_routeur() -> APIRouter:
     @protege.put("/reseau")
     def modifier_reseau(request: Request, donnees: ReglagesReseau):
         g(request).modifier_reseau(donnees.model_dump())
+        return {"ok": True}
+
+    @protege.get("/wifi/reseaux")
+    def reseaux_wifi(request: Request):
+        return g(request).reseaux_wifi()
+
+    @protege.post("/wifi/connecter")
+    def connecter_wifi(request: Request, donnees: ConnexionWifi):
+        g(request).connecter_wifi(donnees.nom, donnees.mot_de_passe)
         return {"ok": True}
 
     @protege.put("/wifi-borne")

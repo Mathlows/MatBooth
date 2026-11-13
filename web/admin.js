@@ -450,6 +450,7 @@ $("visionneuse-fermer").onclick = () => ($("visionneuse").hidden = true);
 
 async function chargerReglages() {
   await chargerEnvoi();
+  chargerReseauxWifi().catch((e) => ($("wifi-statut").textContent = e.message));
   const camera = await api("/api/admin/camera");
   for (const [champ, cle] of [["iso-apercu", "iso_apercu"], ["iso-prise", "iso_prise"]]) {
     const valeurs = [...camera.valeurs_iso];
@@ -519,6 +520,54 @@ $("smtp-securite").onchange = () => {
   const port = { starttls: 587, ssl: 465 }[$("smtp-securite").value];
   if (port) $("smtp-port").value = port;
 };
+
+// ---------- Wi-Fi : rejoindre le réseau d'une salle ----------
+
+async function chargerReseauxWifi() {
+  $("wifi-statut").textContent = "Recherche des réseaux…";
+  $("liste-wifi").replaceChildren();
+  const r = await api("/api/admin/wifi/reseaux");
+  if (r.borne) {
+    $("wifi-statut").textContent = "Le Wi-Fi de la borne est actif : désactivez-le (plus bas) pour rejoindre un autre réseau.";
+    return;
+  }
+  $("wifi-statut").textContent = r.actuel ? `Connectée à « ${r.actuel} ».` : "Pas connectée à un Wi-Fi.";
+  $("liste-wifi").replaceChildren(...r.reseaux.map((reseau) => {
+    const barres = el("span", { class: "barres-wifi", title: `${reseau.signal} %` },
+      ...[25, 50, 75].map((seuil) => el("i", { class: reseau.signal >= seuil ? "plein" : "" })));
+    const formulaire = el("form", { class: "connexion-wifi", hidden: true },
+      reseau.protege ? el("input", { type: "text", placeholder: "Mot de passe du Wi-Fi", autocomplete: "off", autocapitalize: "off", spellcheck: "false" }) : null,
+      el("button", { class: "bouton principal" }, "Se connecter"));
+    formulaire.onsubmit = (e) => {
+      e.preventDefault();
+      essayer(async () => {
+        const champ = formulaire.querySelector("input");
+        const bouton = formulaire.querySelector("button");
+        bouton.disabled = true;
+        bouton.textContent = "Connexion…";
+        try {
+          await envoyer("/api/admin/wifi/connecter", { nom: reseau.nom, mot_de_passe: champ ? champ.value : "" });
+          message(`Connectée à « ${reseau.nom} ».`);
+          await chargerEnvoi();
+          await chargerReseauxWifi();
+        } finally {
+          bouton.disabled = false;
+          bouton.textContent = "Se connecter";
+        }
+      });
+    };
+    const ligne = el("button", { type: "button", class: `reseau-wifi${reseau.nom === r.actuel ? " actuel" : ""}` },
+      barres, el("span", { class: "nom-reseau" }, reseau.nom),
+      el("span", { class: "doux petit" }, reseau.nom === r.actuel ? "Connectée" : reseau.protege ? "Protégé" : "Ouvert"));
+    ligne.onclick = () => {
+      document.querySelectorAll(".connexion-wifi").forEach((f) => { if (f !== formulaire) f.hidden = true; });
+      formulaire.hidden = !formulaire.hidden;
+      formulaire.querySelector("input")?.focus();
+    };
+    return el("div", { class: "element-wifi" }, ligne, formulaire);
+  }));
+}
+$("btn-rechercher-wifi").onclick = () => essayer(chargerReseauxWifi);
 
 $("form-wifi-borne").onsubmit = (e) => {
   e.preventDefault();

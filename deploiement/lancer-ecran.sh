@@ -35,6 +35,8 @@ if [ -f "${PREFERENCES}" ]; then
          -e 's/"exit_type":"[^"]*"/"exit_type":"Normal"/' "${PREFERENCES}"
 fi
 
+# --enable-wayland-ime : le clavier à l'écran du système (squeekboard) s'ouvre dans les champs de texte
+# de l'administration (le clavier des clients, lui, est dessiné par la page).
 exec chromium \
   --kiosk \
   --ozone-platform=wayland \
@@ -50,4 +52,6 @@ exec chromium \
   --check-for-update-interval=31536000 \
   --password-store=basic \
   --lang=fr \
+  --enable-wayland-ime \
+  --wayland-text-input-version=3 \
   "${ADRESSE}/?kiosque=1"

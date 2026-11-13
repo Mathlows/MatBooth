@@ -94,6 +94,7 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
             client = None
         hote = (request.headers.get("host") or "").rsplit(":", 1)[0].strip("[]")
         if client is not None and client in reseau_borne and hote and hote != config.ADRESSE_BORNE:
+            journal.info("Test de connexion de %s (%s%s) : renvoyé vers le portail", client, hote, request.url.path)
             return RedirectResponse(f"{url_borne(request.app.state.cabine, {'actif': True, 'adresse': config.ADRESSE_BORNE})}/portail",
                                     status_code=302, headers={"Cache-Control": "no-store"})
         return await call_next(request)
