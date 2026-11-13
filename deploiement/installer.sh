@@ -109,6 +109,19 @@ cat > /etc/NetworkManager/dnsmasq-shared.d/matbooth.conf <<'FIN'
 address=/#/10.42.0.1
 FIN
 
+etape "Journal conservé entre les redémarrages (diagnostic après un incident)"
+# Raspberry Pi OS garde le journal en mémoire seulement (ménage la carte SD) : sur une borne en location,
+# pouvoir relire ce qui s'est passé avant un redémarrage vaut ces quelques écritures.
+install -d /etc/systemd/journald.conf.d
+cat > /etc/systemd/journald.conf.d/90-matbooth.conf <<'FIN'
+# Matbooth : journal conservé sur la carte (limité à 100 Mo), écrit toutes les 30 s.
+[Journal]
+Storage=persistent
+SystemMaxUse=100M
+SyncIntervalSec=30s
+FIN
+systemctl restart systemd-journald
+
 etape "Écran toujours allumé"
 if command -v raspi-config >/dev/null; then
   raspi-config nonint do_blanking 1 || echo "(raspi-config n'a pas pu désactiver la mise en veille)"
