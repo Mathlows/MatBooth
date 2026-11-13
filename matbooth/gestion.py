@@ -11,7 +11,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 from . import cadres, images, partage
-from .cabine import Cabine, ErreurCabine
+from .cabine import Cabine, ErreurCabine, version_photo
 from .reglages import PROFIL_DEFAUT, fusion
 from .wifi import ErreurWifi
 from .wifi import verifier_reglages as verifier_reglages_wifi
@@ -106,7 +106,8 @@ class Gestion:
 
     def photos(self, evenement: str) -> list[dict]:
         return [
-            {k: p[k] for k in ("id", "mode", "filtre", "cadre", "cree_le", "impressions")}
+            {**{k: p[k] for k in ("id", "mode", "filtre", "cadre", "cree_le", "impressions")},
+             "version": version_photo(self.cabine.dossier_donnees / p["fichier"])}
             for p in self.base.lister_photos(evenement)
         ]
 

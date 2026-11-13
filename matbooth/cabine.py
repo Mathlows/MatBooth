@@ -400,6 +400,7 @@ class Cabine:
         return [
             {
                 "id": p["id"],
+                "version": version_photo(self.dossier_donnees / p["fichier"]),
                 "mode": p["mode"],
                 "bande": bool(images.MODES.get(p["mode"], {}).get("bande")),
                 "cree_le": p["cree_le"],
@@ -470,6 +471,14 @@ class Cabine:
             # Séance terminée : ses e-mails peuvent partir.
             if hasattr(self, "emails"):
                 self.emails.reveiller()
+
+
+def version_photo(fichier: Path) -> str:
+    """Change dès que la photo change (autre photo, ou photo refaite) : sert à rafraîchir les images en cache."""
+    try:
+        return f"{fichier.stem}-{fichier.stat().st_mtime_ns}"
+    except OSError:
+        return fichier.stem
 
 
 def _jpeg(image: Image.Image, qualite: int = 85) -> bytes:

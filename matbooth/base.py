@@ -15,8 +15,10 @@ CREATE TABLE IF NOT EXISTS evenements (
     profil TEXT NOT NULL,
     cree_le TEXT NOT NULL
 );
+-- AUTOINCREMENT : un numéro de photo n'est jamais réutilisé (sinon une nouvelle photo hériterait des
+-- impressions et des images en cache d'une photo effacée).
 CREATE TABLE IF NOT EXISTS photos (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     evenement TEXT NOT NULL,
     fichier TEXT NOT NULL,
     mode TEXT NOT NULL,
@@ -64,6 +66,39 @@ class Base:
         self._verrou = threading.Lock()
         with self._verrou, self._connexion:
             self._connexion.executescript(_SCHEMA)
+        self._migrer_numeros_photos()
+
+    def _migrer_numeros_photos(self) -> None:
+        """Anciennes bases : les numéros de photos effacées étaient réutilisés. On passe en AUTOINCREMENT."""
+        sql = self._lire("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'photos'")[0][0]
+        if "AUTOINCREMENT" in sql.upper():
+            return
+        with self._verrou:
+            plus_grand = self._connexion.execute(
+                """SELECT MAX(n) FROM (SELECT MAX(id) AS n FROM photos UNION ALL SELECT MAX(photo_id) FROM impressions
+                   UNION ALL SELECT MAX(photo_id) FROM envois UNION ALL SELECT MAX(photo_id) FROM liens)"""
+            ).fetchone()[0] or 0
+            self._connexion.executescript(
+                """BEGIN;
+                CREATE TABLE photos_nouvelle (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, evenement TEXT NOT NULL, fichier TEXT NOT NULL,
+                    mode TEXT NOT NULL, filtre TEXT NOT NULL, cadre TEXT, cree_le TEXT NOT NULL);
+                INSERT INTO photos_nouvelle (id, evenement, fichier, mode, filtre, cadre, cree_le)
+                    SELECT id, evenement, fichier, mode, filtre, cadre, cree_le FROM photos;
+                DROP TABLE photos;
+                ALTER TABLE photos_nouvelle RENAME TO photos;
+                COMMIT;"""
+            )
+            with self._connexion:
+                # Les prochains numéros partent après tous ceux déjà utilisés quelque part.
+                self._connexion.execute("DELETE FROM sqlite_sequence WHERE name = 'photos'")
+                self._connexion.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('photos', ?)", (plus_grand,))
+                # Impressions faites avant la création de la photo qui porte leur numéro : elles concernaient une
+                # photo effacée dont le numéro a été réutilisé. Elles restent comptées pour l'événement (photo 0).
+                self._connexion.execute(
+                    """UPDATE impressions SET photo_id = 0 WHERE imprime_le <
+                       (SELECT p.cree_le FROM photos p WHERE p.id = impressions.photo_id)"""
+                )
 
     def _lire(self, requete: str, parametres=()) -> list[sqlite3.Row]:
         with self._verrou:

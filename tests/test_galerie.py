@@ -142,3 +142,46 @@ def test_photo_en_cours_absente_de_la_galerie(cabine, borne):
     assert borne.get("/api/galerie").json() == []
     borne.post(f"/api/seances/{seance}/terminer", json={})
     assert len(borne.get("/api/galerie").json()) == 1
+
+
+def test_numero_de_photo_jamais_reutilise(cabine, borne):
+    """Bug réel : une photo effacée laissait son numéro à la suivante (miniature en cache et impressions héritées)."""
+    regler(cabine, galerie={"active": True, "suppression": True})
+    photo_gardee(borne)
+    [premiere] = borne.get("/api/galerie").json()
+    assert borne.post(f"/api/galerie/{premiere['id']}/imprimer", json={"copies": 2}).status_code == 200
+    assert borne.delete(f"/api/galerie/{premiere['id']}").status_code == 200
+    photo_gardee(borne)
+    [nouvelle] = borne.get("/api/galerie").json()
+    assert nouvelle["id"] != premiere["id"] and nouvelle["version"] != premiere["version"]
+    assert nouvelle["impressions"] == 0 and nouvelle["restantes"] == 2
+    assert cabine.base.total_impressions(cabine.evenement) == 2  # les tirages faits restent comptés
+
+
+def test_migration_d_une_ancienne_base(tmp_path):
+    """Ancienne base sans AUTOINCREMENT, avec une impression héritée par erreur : migrée sans perte."""
+    import sqlite3
+
+    from matbooth.base import Base
+
+    fichier = tmp_path / "ancienne.sqlite"
+    ancienne = sqlite3.connect(fichier)
+    ancienne.executescript("""
+        CREATE TABLE photos (id INTEGER PRIMARY KEY, evenement TEXT NOT NULL, fichier TEXT NOT NULL, mode TEXT NOT NULL,
+                             filtre TEXT NOT NULL, cadre TEXT, cree_le TEXT NOT NULL);
+        CREATE TABLE impressions (id INTEGER PRIMARY KEY, photo_id INTEGER NOT NULL, evenement TEXT NOT NULL,
+                                  copies INTEGER NOT NULL, imprime_le TEXT NOT NULL);
+        INSERT INTO photos VALUES (10, 'ev', 'p.jpg', 'unique', 'aucun', NULL, '2026-11-13T03:31:19');
+        INSERT INTO impressions VALUES (1, 10, 'ev', 2, '2026-11-13T03:21:00');  -- photo n° 10 précédente, effacée
+        INSERT INTO impressions VALUES (2, 10, 'ev', 1, '2026-11-13T03:32:00');  -- vraie impression de la photo 10
+        INSERT INTO impressions VALUES (3, 12, 'ev', 1, '2026-11-13T03:10:00');  -- photo n° 12 effacée
+    """)
+    ancienne.commit()
+    ancienne.close()
+
+    base = Base(fichier)
+    assert base.photo(10)["fichier"] == "p.jpg"
+    assert base.lister_photos("ev")[0]["impressions"] == 1
+    assert base.total_impressions("ev") == 4
+    assert base.ajouter_photo("ev", "q.jpg", "unique", "aucun", None) == 13  # après tous les numéros déjà vus
+    Base(fichier)  # une seconde ouverture ne refait rien

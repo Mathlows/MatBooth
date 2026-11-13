@@ -130,7 +130,7 @@ async function ouvrirGalerie() {
     b.className = "vignette-galerie";
     const img = document.createElement("img");
     img.loading = "lazy";
-    img.src = `/api/galerie/${p.id}/miniature.jpg`;
+    img.src = `/api/galerie/${p.id}/miniature.jpg?v=${encodeURIComponent(p.version)}`;
     b.appendChild(img);
     if (p.impressions) {
       const pastille = document.createElement("span");
@@ -148,7 +148,7 @@ async function ouvrirGalerie() {
 
 function ouvrirPhotoGalerie(p) {
   photoGalerie = { ...p, emails: [] };
-  $("image-galerie").src = `/api/galerie/${p.id}.jpg`;
+  $("image-galerie").src = `/api/galerie/${p.id}.jpg?v=${encodeURIComponent(p.version)}`;
   majPhotoGalerie();
   afficher("photo-galerie");
   relancerGalerie();

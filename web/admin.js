@@ -425,7 +425,7 @@ async function afficherPhotos(evenement) {
   $("grille-photos").replaceChildren(...(photos.length
     ? photos.map((p) =>
         el("button", { onclick: () => ouvrirPhoto(p, evenement) },
-          el("img", { src: urlProtegee(`/api/admin/photos/${p.id}/miniature.jpg`), loading: "lazy", alt: "" }),
+          el("img", { src: urlProtegee(`/api/admin/photos/${p.id}/miniature.jpg`, { v: p.version }), loading: "lazy", alt: "" }),
           el("span", { class: "info-photo" },
             new Date(p.cree_le).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }),
             p.impressions ? ` · ${p.impressions} impr.` : "")
@@ -436,7 +436,7 @@ async function afficherPhotos(evenement) {
 $("choix-evenement-photos").onchange = (e) => essayer(() => afficherPhotos(e.target.value));
 
 function ouvrirPhoto(photo, evenement) {
-  $("visionneuse-image").src = urlProtegee(`/api/admin/photos/${photo.id}.jpg`);
+  $("visionneuse-image").src = urlProtegee(`/api/admin/photos/${photo.id}.jpg`, { v: photo.version });
   $("visionneuse-telecharger").href = urlProtegee(`/api/admin/photos/${photo.id}.jpg`, { telecharger: 1 });
   $("visionneuse-telecharger").hidden = KIOSQUE;
   $("visionneuse-supprimer").onclick = () => essayer(async () => {
