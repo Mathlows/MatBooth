@@ -277,3 +277,20 @@ def test_detection_des_cles_usb(tmp_path):
         "/dev/sda2 /media/mat/LECTURE vfat ro 0 0\n"
     )
     assert partage.cles_usb_montees(montages, blocs) == [Path("/media/mat/MA CLE")]
+
+
+def test_qr_non_propose_sans_aucun_reseau(client, cabine, monkeypatch):
+    """Sans réseau, l'adresse serait 127.0.0.1 : le QR code mènerait au téléphone lui-même."""
+    activer(cabine, qr=True)
+    monkeypatch.setattr(partage, "adresse_locale", lambda: "127.0.0.1")
+    monkeypatch.setattr(cabine.wifi, "etat", lambda: {"disponible": True, "actif": False, "adresse": None})
+    assert client.get("/api/etat").json()["partage"]["qr"] is False
+    seance = seance_complete(client)
+    reponse = client.post(f"/api/seances/{seance}/qr", json={})
+    assert reponse.status_code == 400 and "aucun réseau" in reponse.json()["erreur"]
+    assert fichiers_photos(cabine) == []  # la photo n'a pas été enregistrée pour rien
+
+    # Wi-Fi de la borne actif (sans internet) : de nouveau proposé.
+    monkeypatch.setattr(cabine.wifi, "etat", lambda: {"disponible": True, "actif": True, "adresse": "10.42.0.1"})
+    assert client.get("/api/etat").json()["partage"]["qr"] is True
+    assert client.post(f"/api/seances/{seance}/qr", json={}).json()["url"].startswith("http://10.42.0.1")

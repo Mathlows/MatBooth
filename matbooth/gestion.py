@@ -244,6 +244,10 @@ class Gestion:
         if not etat["disponible"]:
             return None
         nom = self.cabine.reglages["wifi_borne"]["nom"]
+        if not etat["actif"] and self.cabine.profil["partage"]["qr"] and not self.cabine.qr_utilisable():
+            return {"nom": "Wi-Fi de la borne", "ok": False, "message": "Désactivé, et la borne n'a aucun réseau",
+                    "alertes": [{"niveau": "erreur", "message": "QR code indisponible pour les invités : activez le "
+                                 "Wi-Fi de la borne (Réglages), il fonctionne sans internet"}]}
         if etat["actif"]:
             appareils = self.cabine.wifi.appareils_connectes()
             message = f"Actif : « {nom} »" + ("" if appareils is None else f" · {appareils} appareil(s) connecté(s)")

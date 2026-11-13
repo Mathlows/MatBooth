@@ -153,11 +153,24 @@ class Cabine:
             "imprimante": {"nom": self.imprimante.nom, **self.imprimante.etat()},
             "galerie": {"active": r["galerie"]["active"], "suppression": r["galerie"]["suppression"]},
             "partage": {
-                "qr": r["partage"]["qr"],
+                # Proposé seulement si un téléphone peut joindre la borne (sinon le QR code ne mènerait nulle part).
+                "qr": r["partage"]["qr"] and self.qr_utilisable(),
                 # Proposé seulement si les e-mails peuvent réellement partir un jour.
                 "email": self.etat_partage_email(),
             },
         }
+
+    def qr_utilisable(self) -> bool:
+        """Vrai si un téléphone peut joindre la borne : Wi-Fi de la borne actif, adresse fixée par le loueur,
+        ou borne connectée à un réseau. Sans réseau du tout, l'adresse serait 127.0.0.1 (le téléphone lui-même)."""
+        if self.reglages["reseau"]["adresse"].strip():
+            return True
+        try:
+            if self.wifi.etat()["actif"]:
+                return True
+        except Exception:
+            pass
+        return not partage.adresse_locale().startswith("127.")
 
     def repond(self, delai: float = 10) -> bool:
         """Faux si la cabine reste occupée anormalement longtemps (blocage)."""
@@ -324,11 +337,17 @@ class Cabine:
         """Enregistre la photo et renvoie le jeton secret de son lien de téléchargement."""
         if not self.profil["partage"]["qr"]:
             raise ErreurCabine("Le téléchargement par QR code n'est pas activé.")
+        self._verifier_reseau_qr()  # avant d'enregistrer la photo : le client peut encore la supprimer
         with self._verrou:
             seance = self.garder(seance_id, filtre, cadre_id)
             return self._lien_photo(seance.photo_id)
 
+    def _verifier_reseau_qr(self) -> None:
+        if not self.qr_utilisable():
+            raise ErreurCabine("Le QR code est indisponible : la borne n'est reliée à aucun réseau.")
+
     def _lien_photo(self, photo_id: int) -> str:
+        self._verifier_reseau_qr()
         jeton = self.base.lien_de_photo(photo_id)
         if jeton is None:
             jeton = secrets.token_urlsafe(16)
