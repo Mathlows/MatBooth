@@ -91,7 +91,7 @@ Pour essayer le bouton sans rien éteindre :
   Les champs de texte (nom d'événement, réglages e-mail) se remplissent plus facilement depuis un téléphone.
 - **Depuis un téléphone** sur le même réseau Wi-Fi : `http://<adresse-du-pi>:8000/admin`.
 
-Code par défaut : **1234** (à changer dans l'onglet Réglages ; 5 erreurs bloquent l'accès 1 minute).
+Code par défaut : **1234** (à changer dans l'onglet Réglages ; 5 erreurs bloquent l'accès 5 minutes).
 
 | Onglet | Contenu |
 |---|---|
@@ -231,6 +231,7 @@ Les quatre photos occupent le haut de la bande ; le bas est libre pour un logo o
 | `MATBOOTH_IMPRIMANTE` | `simule` | Imprimante utilisée : `simule` ou `dnp` |
 | `MATBOOTH_FILE_IMPRESSION` | `DNP_RX1` | Nom de la file CUPS de l'imprimante DNP |
 | `MATBOOTH_PORT` | `8000` | Port du serveur |
+| `MATBOOTH_ECRAN_DISTANT` | (vide) | `1` : l'interface de l'écran répond aussi aux autres ordinateurs du réseau (pour développer ; **jamais en événement**). Par défaut, seule la borne elle-même peut l'utiliser |
 
 ## Développement
 

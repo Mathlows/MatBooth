@@ -21,4 +21,7 @@ PORT_PORTAIL = int(os.environ.get("MATBOOTH_PORT_PORTAIL", "80"))
 PORTAIL_ACTIF = False  # vrai une fois le port du portail ouvert (voir __main__)
 # Réseau du Wi-Fi de la borne (NetworkManager, mode partagé) et adresse de la borne sur ce réseau.
 RESEAU_BORNE = "10.42.0.0/24"
+# L'interface de l'écran (séances, aperçu, galerie) ne répond qu'à la borne elle-même ; « 1 » l'ouvre au réseau
+# (pour développer depuis un autre ordinateur, jamais en événement).
+ECRAN_DISTANT = os.environ.get("MATBOOTH_ECRAN_DISTANT") == "1"
 ADRESSE_BORNE = "10.42.0.1"

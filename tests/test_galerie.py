@@ -185,3 +185,26 @@ def test_migration_d_une_ancienne_base(tmp_path):
     assert base.total_impressions("ev") == 4
     assert base.ajouter_photo("ev", "q.jpg", "unique", "aucun", None) == 13  # après tous les numéros déjà vus
     Base(fichier)  # une seconde ouverture ne refait rien
+
+
+def test_interface_de_l_ecran_reservee_a_la_borne(cabine, borne):
+    """Un invité sur le réseau ne pilote pas la borne depuis son téléphone (aperçu, séances, impressions)."""
+    regler(cabine, partage={"qr": True, "email": False, "usb": False})
+    seance = borne.post("/api/seances", json={"mode": "unique"}).json()["id"]
+    borne.post(f"/api/seances/{seance}/prise")
+    jeton = borne.post(f"/api/seances/{seance}/qr", json={}).json()["url"].rsplit("/", 1)[1]
+    borne.post(f"/api/seances/{seance}/terminer", json={})
+
+    with TestClient(creer_app(cabine), client=("192.168.1.50", 40000), follow_redirects=False) as telephone:
+        for methode, chemin in (("get", "/api/etat"), ("get", "/api/apercu.mjpg"), ("get", "/api/cadres?mode=unique"),
+                                ("post", "/api/seances"), ("post", f"/api/seances/{seance}/imprimer"),
+                                ("post", "/api/ecran/battement"), ("get", "/api/galerie")):
+            assert getattr(telephone, methode)(chemin).status_code == 403, chemin
+        accueil = telephone.get("/")
+        assert accueil.status_code == 302 and accueil.headers["location"] == "/portail"
+        # Ce qui sert aux invités et à l'administration reste accessible.
+        assert telephone.get(f"/p/{jeton}").status_code == 200
+        assert telephone.get("/portail").status_code == 200
+        assert telephone.get("/admin").status_code == 200
+        assert telephone.post("/api/admin/connexion", json={"pin": "1234"}).status_code == 200
+    assert cabine.base.total_impressions(cabine.evenement) == 0

@@ -18,7 +18,7 @@ from .images import FILTRES
 
 _DUREE_JETON = 8 * 3600
 _ESSAIS_AVANT_BLOCAGE = 5
-_DUREE_BLOCAGE = 60
+_DUREE_BLOCAGE = 5 * 60  # s : 5 mauvais codes bloquent l'accès 5 minutes
 _TAILLE_MAX_CADRE = 20 * 1024 * 1024
 
 # Proposées quand l'appareil n'est pas branché (valeurs habituelles des Canon).

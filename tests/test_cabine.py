@@ -91,3 +91,14 @@ def test_seance_abandonnee_est_gardee(client, cabine):
 
 def test_apercu_simule():
     assert CameraSimulee().apercu_jpeg()[:2] == b"\xff\xd8"
+
+
+def test_photo_enregistree_sans_fichier_temporaire_restant(tmp_path):
+    from matbooth.cabine import enregistrer_jpeg
+
+    fichier = tmp_path / "photo.jpg"
+    enregistrer_jpeg(Image.new("RGB", (300, 200), "red"), fichier)
+    enregistrer_jpeg(Image.new("RGB", (300, 200), "blue"), fichier)  # photo refaite : remplacée d'un coup
+    assert [f.name for f in tmp_path.iterdir()] == ["photo.jpg"]
+    with Image.open(fichier) as image:
+        assert image.size == (300, 200) and image.getpixel((5, 5))[2] > 200

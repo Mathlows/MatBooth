@@ -7,6 +7,7 @@ Tant qu'elle n'est pas gardée, ses fichiers sont dans un dossier temporaire :
 
 import io
 import logging
+import os
 import secrets
 import shutil
 import threading
@@ -255,7 +256,7 @@ class Cabine:
                 if seance.choix_final != (filtre, cadre_id):
                     # Photo déjà partagée, puis filtre ou cadre changé : on la refait au même endroit.
                     finale = self._composer(seance, filtre, cadre_id, True)
-                    finale.save(seance.fichier_final, "JPEG", quality=95, dpi=(300, 300))
+                    enregistrer_jpeg(finale, seance.fichier_final)
                     self.base.modifier_photo(seance.photo_id, filtre, cadre_id)
                     seance.choix_final = (filtre, cadre_id)
                 return seance
@@ -263,7 +264,7 @@ class Cabine:
             dossier = self.dossier_evenement(self.evenement) / "photos"
             dossier.mkdir(parents=True, exist_ok=True)
             fichier = dossier / f"{time.strftime('%Y%m%d-%H%M%S')}_{seance.id[:6]}.jpg"
-            finale.save(fichier, "JPEG", quality=95, dpi=(300, 300))
+            enregistrer_jpeg(finale, fichier)  # sur la carte avant d'entrer dans la base
             seance.fichier_final = fichier
             seance.choix_final = (filtre, cadre_id)
             seance.photo_id = self.base.ajouter_photo(
@@ -471,6 +472,22 @@ class Cabine:
             # Séance terminée : ses e-mails peuvent partir.
             if hasattr(self, "emails"):
                 self.emails.reveiller()
+
+
+def enregistrer_jpeg(image: Image.Image, fichier: Path) -> None:
+    """Écrit la photo pour de bon avant de s'en servir : une coupure de courant juste après ne laisse
+    jamais un fichier vide ou tronqué (seulement l'ancienne version, ou rien)."""
+    temporaire = fichier.with_name(fichier.name + ".tmp")
+    with open(temporaire, "wb") as sortie:
+        image.save(sortie, "JPEG", quality=95, dpi=(300, 300))
+        sortie.flush()
+        os.fsync(sortie.fileno())
+    os.replace(temporaire, fichier)
+    dossier = os.open(fichier.parent, os.O_RDONLY)
+    try:
+        os.fsync(dossier)  # le renommage aussi
+    finally:
+        os.close(dossier)
 
 
 def version_photo(fichier: Path) -> str:

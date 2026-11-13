@@ -50,6 +50,17 @@ class AdresseEmail(BaseModel):
     adresse: str = Field(max_length=254)
 
 
+# Appels venant de la borne elle-même (Chromium en plein écran) ; « testclient » : tests automatiques.
+_CLIENTS_LOCAUX = ("127.0.0.1", "::1", "testclient")
+# Interface de l'écran : réservée à la borne. Restent ouverts au réseau : liens QR (/p/), portail,
+# administration (protégée par code) et fichiers statiques.
+_CHEMINS_ECRAN = ("/api/etat", "/api/apercu", "/api/cadres", "/api/seances", "/api/ecran", "/api/galerie", "/api/sante")
+
+
+def appel_local(request: Request) -> bool:
+    return config.ECRAN_DISTANT or bool(request.client and request.client.host in _CLIENTS_LOCAUX)
+
+
 def ecran_borne(request: Request) -> None:
     """La galerie n'est servie qu'à l'écran de la borne : pas aux téléphones du réseau (Wi-Fi de la borne compris)."""
     if not request.client or request.client.host not in ("127.0.0.1", "::1"):
@@ -108,6 +119,18 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
 
     app = FastAPI(title="Matbooth", lifespan=cycle_de_vie)
     reseau_borne = ipaddress.ip_network(config.RESEAU_BORNE)
+
+    # Déclaré avant le portail captif : il s'exécute après lui (le portail reste prioritaire).
+    @app.middleware("http")
+    async def ecran_seulement(request: Request, call_next):
+        """Un invité sur le réseau ne doit pas piloter la borne (aperçu, séances, impressions) depuis son téléphone."""
+        chemin = request.url.path
+        if not appel_local(request):
+            if chemin == "/":
+                return RedirectResponse("/portail", status_code=302)  # il cherchait sans doute sa photo
+            if chemin.startswith(_CHEMINS_ECRAN):
+                return JSONResponse({"erreur": "Réservé à l'écran de la borne."}, status_code=403)
+        return await call_next(request)
 
     @app.middleware("http")
     async def portail_captif(request: Request, call_next):

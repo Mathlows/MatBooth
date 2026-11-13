@@ -149,7 +149,7 @@ def test_portail_captif(cabine, monkeypatch):
 
     # Un appareil d'un autre réseau (box) n'est jamais redirigé.
     with TestClient(app, client=("192.168.1.50", 40000), follow_redirects=False) as autre:
-        assert autre.get("/api/etat", headers={"Host": "boothv2.local:8000"}).status_code == 200
+        assert autre.get("/admin", headers={"Host": "boothv2.local:8000"}).status_code == 200
 
 
 class FauxNmcliClient(FauxNmcli):

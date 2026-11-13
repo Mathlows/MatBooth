@@ -160,3 +160,23 @@ def test_reprise_des_reglages_de_l_etape_1(tmp_path):
     assert cabine.evenement == "anniv-leo"
     assert cabine.profil["limite_impressions"] == 50
     assert cabine.etat()["evenement"] == "Anniversaire Léo"
+
+
+def test_blocage_du_code_5_minutes(monkeypatch):
+    """5 mauvais codes : accès bloqué 5 minutes, même avec le bon code ; ensuite tout redevient normal."""
+    from matbooth import admin as module
+    from matbooth.cabine import ErreurCabine
+
+    horloge = [1000.0]
+    monkeypatch.setattr(module.time, "monotonic", lambda: horloge[0])
+    gardien = module.Gardien()
+    for _ in range(2):
+        for _ in range(5):
+            with pytest.raises(ErreurCabine):
+                gardien.connecter(False)
+        assert gardien._bloque_jusqu_a - horloge[0] == 300  # toujours 5 minutes, sans augmentation
+        horloge[0] += 299
+        with pytest.raises(ErreurCabine, match="Réessayez"):
+            gardien.connecter(True)
+        horloge[0] += 2
+    assert gardien.connecter(True)
