@@ -122,14 +122,21 @@ h1 { font-size: 8vh; font-weight: 700; margin: 1.5vh 0 1vh; text-align: center; 
   display: flex; flex-direction: column; padding: 3vh 2.5vh; gap: 1.2vh; min-height: 0;
 }
 .resultat-panneau h2 { font-size: max(2.2vh, 12px); color: var(--texte-doux); text-transform: uppercase; letter-spacing: .15em; }
+/* Filtres et cadres : tous visibles, en grille ; la zone défile si besoin, les boutons d'action restent en bas. */
+.zone-choix {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 1.2vh;
+  scrollbar-width: none; padding-right: .3vh;
+}
+.zone-choix::-webkit-scrollbar { display: none; }
 .choix {
-  display: flex; gap: 1.4vh; overflow-x: auto; padding: .6vh .3vh 1.2vh; scrollbar-width: none; flex-shrink: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(max(10.5vh, 64px), 1fr));
+  gap: 1.2vh; padding: .6vh .3vh 1.2vh;
 }
-.choix::-webkit-scrollbar { display: none; }
 .choix button {
-  flex: 0 0 auto; width: max(13vh, 76px);
-  display: flex; flex-direction: column; align-items: center; gap: .6vh; font-size: max(1.7vh, 12px); color: var(--texte-doux);
+  min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: .6vh; font-size: max(1.6vh, 11px); color: var(--texte-doux);
 }
+.choix button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .choix img {
   width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: .8vh;
   border: .45vh solid transparent; background: var(--surface-2);
@@ -141,7 +148,7 @@ h1 { font-size: 8vh; font-weight: 700; margin: 1.5vh 0 1vh; text-align: center; 
 .choix button.selection { color: var(--texte); font-weight: 700; }
 .choix button.selection img, .choix button.selection .sans-cadre { border-color: var(--accent); }
 
-.actions { margin-top: auto; display: flex; flex-direction: column; gap: 1.4vh; }
+.actions { margin-top: auto; display: flex; flex-direction: column; gap: 1.4vh; flex-shrink: 0; }
 .bouton {
   width: 100%; padding: 2.2vh; border-radius: var(--rayon);
   background: var(--surface-2); font-size: 2.6vh; font-weight: 700;
