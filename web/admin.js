@@ -660,6 +660,11 @@ $("form-pin").onsubmit = (e) => {
 // ---------- Démarrage ----------
 
 $("btn-retour-borne").onclick = retourBorne;
+$("btn-bureau").onclick = () => essayer(async () => {
+  if (!confirmer("Réduire la borne et afficher le bureau du Raspberry Pi ?\n\nPour revenir : icône « Borne photo » sur le bureau ou dans la barre des tâches (ou redémarrer).")) return;
+  await envoyer("/api/admin/systeme/bureau");
+  message("Affichage du bureau…");
+});
 $("btn-retour-borne-pin").onclick = retourBorne;
 $("btn-deconnexion").onclick = () => deconnecter();
 

@@ -118,16 +118,35 @@ for unite in matbooth-ecran.service matbooth-ecran-surveillance.service matbooth
 done
 # Raccourci « Borne photo » dans le menu, pour revenir en plein écran après une maintenance.
 install -d -o "${UTILISATEUR}" -g "${UTILISATEUR}" "${MAISON}/.local/share/applications"
-cat > "${MAISON}/.local/share/applications/matbooth.desktop" <<'FIN'
+cat > "${MAISON}/.local/share/applications/matbooth.desktop" <<FIN
 [Desktop Entry]
 Type=Application
-Name=Borne photo (plein écran)
-Comment=Relance l'écran de la borne Matbooth
+Name=Borne photo
+Comment=Revenir à la borne Matbooth en plein écran
 Exec=systemctl --user start matbooth-ecran.service
-Icon=camera-photo
+Icon=${DEPLOIEMENT}/matbooth.png
+Terminal=false
 Categories=Graphics;
 FIN
 chown "${UTILISATEUR}:" "${MAISON}/.local/share/applications/matbooth.desktop"
+# Même raccourci sur le bureau…
+BUREAU="$(en_utilisateur xdg-user-dir DESKTOP 2>/dev/null || echo "${MAISON}/Desktop")"
+install -d -o "${UTILISATEUR}" -g "${UTILISATEUR}" "${BUREAU}"
+install -m 755 -o "${UTILISATEUR}" -g "${UTILISATEUR}" "${MAISON}/.local/share/applications/matbooth.desktop" "${BUREAU}/matbooth.desktop"
+# … et en premier dans la barre des tâches (wf-panel-pi).
+PANNEAU="${MAISON}/.config/wf-panel-pi/wf-panel-pi.ini"
+install -d -o "${UTILISATEUR}" -g "${UTILISATEUR}" "$(dirname "${PANNEAU}")"
+touch "${PANNEAU}" && chown "${UTILISATEUR}:" "${PANNEAU}"
+if ! grep -q "^launchers=.*matbooth" "${PANNEAU}"; then
+  if grep -q "^launchers=" "${PANNEAU}"; then
+    sed -i 's/^launchers=/launchers=matbooth /' "${PANNEAU}"
+  else
+    DEFAUT="$(grep -m1 '^launchers=' /etc/xdg/wf-panel-pi/wf-panel-pi.ini 2>/dev/null | cut -d= -f2-)"
+    grep -q "^\[panel\]" "${PANNEAU}" || echo "[panel]" >> "${PANNEAU}"
+    sed -i "/^\[panel\]/a launchers=matbooth ${DEFAUT:-x-www-browser pcmanfm x-terminal-emulator}" "${PANNEAU}"
+  fi
+  pkill -u "${UTILISATEUR}" -x wf-panel-pi || true  # relancé aussitôt par le bureau
+fi
 
 etape "Activation"
 systemctl daemon-reload
