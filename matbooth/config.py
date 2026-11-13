@@ -16,3 +16,9 @@ IMPRIMANTE = os.environ.get("MATBOOTH_IMPRIMANTE", "simule")
 
 HOTE = os.environ.get("MATBOOTH_HOTE", "0.0.0.0")
 PORT = int(os.environ.get("MATBOOTH_PORT", "8000"))
+# Port web standard, pour le portail captif du Wi-Fi de la borne (0 = désactivé).
+PORT_PORTAIL = int(os.environ.get("MATBOOTH_PORT_PORTAIL", "80"))
+PORTAIL_ACTIF = False  # vrai une fois le port du portail ouvert (voir __main__)
+# Réseau du Wi-Fi de la borne (NetworkManager, mode partagé) et adresse de la borne sur ce réseau.
+RESEAU_BORNE = "10.42.0.0/24"
+ADRESSE_BORNE = "10.42.0.1"

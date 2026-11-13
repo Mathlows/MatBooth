@@ -115,3 +115,38 @@ def test_qr_code_avec_le_wifi_de_la_borne(admin, cabine):
     assert admin.put("/api/admin/wifi-borne", json={"actif": False, "nom": "Photobooth", "mot_de_passe": "souriez2026"}).status_code == 200
     assert cabine.base.envois_a_faire(10**10)  # plus de délai d'attente
     assert admin.get("/api/admin/tableau").json()["wifi"]["message"].startswith("Désactivé")
+
+
+def test_portail_captif(cabine, monkeypatch):
+    from matbooth import config
+
+    monkeypatch.setattr(config, "PORTAIL_ACTIF", True)
+    evenement = cabine.base.evenement(cabine.evenement)
+    cabine.base.modifier_evenement(evenement["id"], evenement["nom"], {**evenement["profil"], "partage": {"qr": True, "email": False, "usb": False}})
+    cabine.wifi.activer("Photobooth", "", delai=0)
+    app = creer_app(cabine)
+
+    with TestClient(app, client=("10.42.0.67", 40000), follow_redirects=False) as telephone:
+        # Test de connexion d'Android : redirigé vers le portail (« Se connecter au réseau »).
+        sonde = telephone.get("/generate_204", headers={"Host": "connectivitycheck.gstatic.com"})
+        assert sonde.status_code == 302 and sonde.headers["location"] == "http://10.42.0.1/portail"
+        assert telephone.get("/hotspot-detect.html", headers={"Host": "captive.apple.com"}).status_code == 302
+        # Ce qui est demandé à la borne elle-même n'est pas détourné.
+        assert telephone.get("/portail", headers={"Host": "10.42.0.1"}).status_code == 200
+        assert telephone.get("/api/portail", headers={"Host": "10.42.0.1"}).json() == {"jeton": None}
+
+        with TestClient(app) as borne:  # l'écran de la borne (localhost) n'est jamais redirigé
+            assert borne.get("/api/etat").status_code == 200
+            seance = borne.post("/api/seances", json={"mode": "unique"}).json()["id"]
+            borne.post(f"/api/seances/{seance}/prise")
+            qr = borne.post(f"/api/seances/{seance}/qr", json={}).json()
+            assert qr["borne"] is True and qr["url"].startswith("http://10.42.0.1/p/")
+
+        jeton = telephone.get("/api/portail", headers={"Host": "10.42.0.1"}).json()["jeton"]
+        assert qr["url"].endswith(jeton)
+        photo = telephone.get(f"/p/{jeton}/photo.jpg", params={"telecharger": 1}, headers={"Host": "10.42.0.1"})
+        assert photo.content[:2] == b"\xff\xd8"
+
+    # Un appareil d'un autre réseau (box) n'est jamais redirigé.
+    with TestClient(app, client=("192.168.1.50", 40000), follow_redirects=False) as autre:
+        assert autre.get("/api/etat", headers={"Host": "boothv2.local:8000"}).status_code == 200

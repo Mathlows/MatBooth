@@ -94,6 +94,58 @@ def page_telechargement(evenement: str, jeton: str) -> str:
 </main></body></html>"""
 
 
+def page_portail(evenement: str) -> str:
+    """Portail du Wi-Fi de la borne : montre la photo affichée en QR code sur la borne en ce moment."""
+    nom = html.escape(evenement)
+    return f"""<!doctype html>
+<html lang="fr" translate="no"><head><meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Votre photo – {nom}</title>
+<style>
+  :root {{ color-scheme: dark; }}
+  body {{ margin: 0; background: #121014; color: #f6f1ea; font-family: system-ui, sans-serif; text-align: center; }}
+  main {{ max-width: 640px; margin: 0 auto; padding: 24px 16px 40px; }}
+  h1 {{ font-size: 22px; margin: 4px 0 18px; }}
+  p.sur {{ color: #d6ad66; letter-spacing: .15em; text-transform: uppercase; font-size: 13px; margin: 0; }}
+  img {{ width: 100%; max-height: 65vh; object-fit: contain; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,.6); }}
+  a.bouton {{ display: block; margin: 22px 0 12px; padding: 16px; border-radius: 12px; background: #d6ad66;
+             color: #1b1408; font-weight: 700; font-size: 18px; text-decoration: none; }}
+  p.aide {{ color: #b9b0a6; font-size: 15px; line-height: 1.5; }}
+  [hidden] {{ display: none !important; }}
+</style></head>
+<body><main>
+  <p class="sur">Photobooth</p>
+  <h1>{nom}</h1>
+  <div id="photo" hidden>
+    <img id="image" alt="Votre photo">
+    <a id="telecharger" class="bouton" href="#">Télécharger la photo</a>
+    <p class="aide">Si le téléchargement ne démarre pas : appui long sur la photo,
+    puis « Enregistrer l'image » (ou « Ajouter à Photos » sur iPhone).</p>
+  </div>
+  <p id="attente" class="aide">Sur l'écran de la borne, touchez <strong>« Sur mon téléphone »</strong> :
+  votre photo apparaîtra ici.</p>
+</main>
+<script>
+  let actuel = null;
+  async function verifier() {{
+    try {{
+      const r = await (await fetch("/api/portail", {{ cache: "no-store" }})).json();
+      if (r.jeton && r.jeton !== actuel) {{
+        actuel = r.jeton;
+        document.getElementById("image").src = "/p/" + r.jeton + "/photo.jpg";
+        document.getElementById("telecharger").href = "/p/" + r.jeton + "/photo.jpg?telecharger=1";
+        document.getElementById("photo").hidden = false;
+        document.getElementById("attente").hidden = true;
+      }}
+    }} catch (e) {{}}
+  }}
+  verifier();
+  setInterval(verifier, 3000);
+</script>
+</body></html>"""
+
+
 # --- E-mails --------------------------------------------------------------------
 
 

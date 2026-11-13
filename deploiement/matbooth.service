@@ -11,6 +11,8 @@ StartLimitIntervalSec=0
 User=@UTILISATEUR@
 # lp : lire l'état de l'imprimante DNP ; plugdev : accès USB à l'appareil photo
 SupplementaryGroups=lp plugdev
+# Port 80 : portail captif du Wi-Fi de la borne (la borne elle-même reste sur le port 8000).
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 WorkingDirectory=@RACINE@
 Environment=PYTHONUNBUFFERED=1
 Environment=MATBOOTH_CAMERA=gphoto2

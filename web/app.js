@@ -263,7 +263,14 @@ async function ouvrirQr() {
   try {
     const r = await envoyer(`/api/seances/${seance.id}/qr`, choix);
     const etapes = [];
-    if (r.wifi) {
+    if (r.wifi && r.borne) {
+      // Wi-Fi de la borne : la photo s'ouvre d'elle-même (portail) une fois connecté.
+      const detail = ["Réseau ", gras(r.wifi.nom)];
+      if (r.wifi.mot_de_passe) detail.push(document.createElement("br"), "Mot de passe ", gras(r.wifi.mot_de_passe));
+      detail.push(document.createElement("br"), "Votre photo s'ouvre ensuite toute seule (touchez « Se connecter au réseau » si le téléphone le demande).");
+      etapes.push(etapeQr("1", "Connectez-vous au Wi-Fi de la borne", r.wifi.qr, detail));
+      etapes.push(etapeQr("2", "Rien ne s'ouvre ? Scannez ce code", r.qr, ["En restant sur le Wi-Fi de la borne."]));
+    } else if (r.wifi) {
       const detail = ["Réseau ", gras(r.wifi.nom)];
       if (r.wifi.mot_de_passe) detail.push(document.createElement("br"), "Mot de passe ", gras(r.wifi.mot_de_passe));
       etapes.push(etapeQr("1", "Connectez-vous au Wi-Fi", r.wifi.qr, detail));

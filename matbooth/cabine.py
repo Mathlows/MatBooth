@@ -310,7 +310,16 @@ class Cabine:
             if jeton is None:
                 jeton = secrets.token_urlsafe(16)
                 self.base.ajouter_lien(jeton, seance.photo_id)
+            # Photo proposée par le portail du Wi-Fi de la borne : celle affichée en QR code à l'instant.
+            self._dernier_partage = (jeton, time.monotonic())
             return jeton
+
+    def photo_du_portail(self, duree: float = 600) -> str | None:
+        """Jeton de la dernière photo affichée en QR code (dans les 10 dernières minutes), si elle existe encore."""
+        dernier = getattr(self, "_dernier_partage", None)
+        if dernier is None or time.monotonic() - dernier[1] > duree:
+            return None
+        return dernier[0] if self.photo_telechargee(dernier[0]) else None
 
     def demander_email(self, seance_id: str, filtre: str, cadre_id: str | None, adresse: str) -> list[str]:
         """Met la photo en file d'attente pour cette adresse. Renvoie les adresses déjà demandées."""

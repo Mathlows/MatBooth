@@ -96,6 +96,13 @@ polkit.addRule(function(action, subject) {
 });
 FIN
 chmod 644 /etc/polkit-1/rules.d/50-matbooth.rules
+# Portail captif : sur le Wi-Fi de la borne, tous les noms mènent à la borne, ce qui fait afficher
+# « Se connecter au réseau » aux téléphones (voir matbooth/app.py, portail_captif).
+install -d /etc/NetworkManager/dnsmasq-shared.d
+cat > /etc/NetworkManager/dnsmasq-shared.d/matbooth.conf <<'FIN'
+# Matbooth : sur le Wi-Fi de la borne, tous les noms de domaine mènent à la borne (portail captif).
+address=/#/10.42.0.1
+FIN
 
 etape "Écran toujours allumé"
 if command -v raspi-config >/dev/null; then

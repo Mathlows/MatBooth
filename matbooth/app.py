@@ -1,6 +1,7 @@
 """Serveur web : l'écran tactile (Chromium en plein écran) dialogue avec cette API."""
 
 import asyncio
+import ipaddress
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -8,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -45,6 +46,10 @@ def url_borne(cabine: Cabine, wifi_borne: dict | None = None) -> str:
     """Adresse de la borne vue depuis un téléphone du même réseau."""
     if wifi_borne and wifi_borne["actif"]:
         adresse = wifi_borne["adresse"]
+        if config.PORTAIL_ACTIF and config.PORT_PORTAIL == 80:
+            return f"http://{adresse}"
+        if config.PORTAIL_ACTIF:
+            return f"http://{adresse}:{config.PORT_PORTAIL}"
     else:
         adresse = cabine.reglages["reseau"]["adresse"].strip() or partage.adresse_locale()
     if adresse.startswith("http://") or adresse.startswith("https://"):
@@ -73,6 +78,26 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
         app.state.cabine.imprimante.fermer()
 
     app = FastAPI(title="Matbooth", lifespan=cycle_de_vie)
+    reseau_borne = ipaddress.ip_network(config.RESEAU_BORNE)
+
+    @app.middleware("http")
+    async def portail_captif(request: Request, call_next):
+        """Sur le Wi-Fi de la borne, toute page demandée ailleurs mène au portail.
+
+        Les téléphones testent internet en ouvrant une page connue (google, apple…) : la recevoir redirigée
+        leur fait afficher « Se connecter au réseau », dans une fenêtre qui passe bien par ce Wi-Fi
+        (sinon Android passerait par les données mobiles et ne trouverait pas la borne).
+        """
+        try:
+            client = ipaddress.ip_address(request.client.host) if request.client else None
+        except ValueError:
+            client = None
+        hote = (request.headers.get("host") or "").rsplit(":", 1)[0].strip("[]")
+        if client is not None and client in reseau_borne and hote and hote != config.ADRESSE_BORNE:
+            return RedirectResponse(f"{url_borne(request.app.state.cabine, {'actif': True, 'adresse': config.ADRESSE_BORNE})}/portail",
+                                    status_code=302, headers={"Cache-Control": "no-store"})
+        return await call_next(request)
+
     app.state.demarre_le = time.monotonic()
     app.state.battement = None  # dernier signe de vie de l'écran de la borne
 
@@ -197,7 +222,19 @@ def creer_app(cabine: Cabine | None = None) -> FastAPI:
         wifi = None
         if nom:
             wifi = {"nom": nom, "mot_de_passe": mot_de_passe, "qr": partage.qr_wifi_svg(nom, mot_de_passe)}
-        return {"url": url, "qr": partage.qr_svg(url), "wifi": wifi}
+        return {"url": url, "qr": partage.qr_svg(url), "wifi": wifi, "borne": wifi_borne["actif"]}
+
+    # Portail du Wi-Fi de la borne : s'ouvre tout seul sur le téléphone qui rejoint le réseau.
+    @app.get("/portail", response_class=HTMLResponse)
+    def portail(request: Request):
+        cabine = c(request)
+        journal.info("Portail ouvert par %s", request.client.host if request.client else "?")
+        nom = cabine.base.evenement(cabine.evenement)["nom"]
+        return HTMLResponse(partage.page_portail(nom), headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/portail")
+    def photo_portail(request: Request):
+        return {"jeton": c(request).photo_du_portail()}
 
     @app.post("/api/seances/{seance_id}/email")
     def email(request: Request, seance_id: str, choix: ChoixEmail):
