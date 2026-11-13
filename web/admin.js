@@ -686,3 +686,113 @@ construirePave();
 if (jeton) {
   api("/api/admin/tableau").then(ouvrir).catch(() => {});
 }
+
+// ---------- Clavier à l'écran (borne en plein écran) ----------
+// En plein écran, le bureau cache le clavier du système : l'administration dessine le sien.
+
+const CLAVIER_ADMIN = {
+  lettres: [
+    ["a", "z", "e", "r", "t", "y", "u", "i", "o", "p"],
+    ["q", "s", "d", "f", "g", "h", "j", "k", "l", "m"],
+    ["⇧", "w", "x", "c", "v", "b", "n", "'", "⌫"],
+    ["?123", "@", " ", ".", "↵"],
+  ],
+  symboles: [
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+    ["é", "è", "ê", "à", "ç", "ù", "ô", "î", "-", "_"],
+    ["&", "#", "%", "+", "=", "/", ":", "!", "?", "⌫"],
+    ["abc", "(", " ", ")", ",", "↵"],
+  ],
+};
+let champClavier = null;
+let disposition = "lettres";
+let majuscule = false;
+
+const champTexte = (e) =>
+  e && !e.readOnly && !e.disabled &&
+  (e.tagName === "TEXTAREA" || (e.tagName === "INPUT" && ["text", "email", "password", "number", "search", "url", ""].includes(e.type)));
+
+function insererTexte(texte) {
+  const c = champClavier;
+  if (!c) return;
+  try {
+    c.setRangeText(texte, c.selectionStart, c.selectionEnd, "end");
+  } catch {
+    c.value += texte; // champs e-mail et nombre : pas de curseur accessible, on ajoute à la fin
+  }
+  c.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function effacerTexte() {
+  const c = champClavier;
+  if (!c) return;
+  try {
+    const debut = c.selectionStart, fin = c.selectionEnd;
+    if (debut !== fin) c.setRangeText("", debut, fin, "end");
+    else if (debut > 0) c.setRangeText("", debut - 1, debut, "end");
+  } catch {
+    c.value = c.value.slice(0, -1);
+  }
+  c.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function toucheClavier(t) {
+  if (t === "⇧") { majuscule = !majuscule; return dessinerClavier(); }
+  if (t === "?123") { disposition = "symboles"; return dessinerClavier(); }
+  if (t === "abc") { disposition = "lettres"; return dessinerClavier(); }
+  if (t === "⌫") return effacerTexte();
+  if (t === "↵") {
+    if (champClavier?.tagName === "TEXTAREA") return insererTexte("\n");
+    const formulaire = champClavier?.form;
+    fermerClavier();
+    formulaire?.requestSubmit();
+    return;
+  }
+  insererTexte(majuscule && t.length === 1 ? t.toUpperCase() : t);
+  if (majuscule) { majuscule = false; dessinerClavier(); }
+}
+
+function dessinerClavier() {
+  const zone = $("clavier-admin");
+  const fermer = el("button", { type: "button", class: "fermer-clavier", onclick: fermerClavier }, "Masquer le clavier ▾");
+  const rangees = CLAVIER_ADMIN[disposition].map((rangee) =>
+    el("div", { class: "rangee" }, ...rangee.map((t) => {
+      const affiche = t === " " ? "espace" : majuscule && t.length === 1 ? t.toUpperCase() : t;
+      const classes = [t === " " ? "espace" : "", t.length > 1 || t === "⌫" || t === "⇧" || t === "↵" ? "special" : "",
+        t === "⇧" && majuscule ? "actif" : "", t === "↵" ? "valider" : ""].join(" ");
+      return el("button", { type: "button", class: classes, onclick: () => toucheClavier(t) }, affiche);
+    }))
+  );
+  zone.replaceChildren(fermer, ...rangees);
+}
+
+function ouvrirClavier(champ) {
+  champClavier = champ;
+  disposition = champ.type === "number" ? "symboles" : "lettres";
+  majuscule = false;
+  dessinerClavier();
+  $("clavier-admin").hidden = false;
+  document.body.classList.add("avec-clavier");
+  // Le champ reste visible au-dessus du clavier.
+  setTimeout(() => champ.scrollIntoView({ block: "center", behavior: "smooth" }), 50);
+}
+
+function fermerClavier() {
+  champClavier = null;
+  $("clavier-admin").hidden = true;
+  document.body.classList.remove("avec-clavier");
+  if (champTexte(document.activeElement)) document.activeElement.blur();
+}
+
+if (KIOSQUE) {
+  document.addEventListener("focusin", (e) => {
+    if (champTexte(e.target)) ouvrirClavier(e.target);
+  });
+  document.addEventListener("focusout", () => {
+    // Laisse le temps au nouveau champ éventuel de prendre le relais.
+    setTimeout(() => { if (!champTexte(document.activeElement)) fermerClavier(); }, 0);
+  });
+  // Toucher le clavier ne doit pas faire perdre le curseur au champ.
+  $("clavier-admin").addEventListener("pointerdown", (e) => e.preventDefault());
+  $("clavier-admin").addEventListener("mousedown", (e) => e.preventDefault());
+}

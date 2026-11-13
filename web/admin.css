@@ -219,3 +219,26 @@ form > .champ:first-of-type { margin-top: 0; }
 .connexion-wifi[hidden] { display: none; }
 .connexion-wifi input { flex: 1; min-width: 200px; }
 .connexion-wifi .bouton { width: auto; }
+
+/* ---------- Clavier à l'écran (borne en plein écran) ---------- */
+.clavier-admin {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; height: 44vh;
+  background: #0b0a0c; border-top: 1px solid var(--bord); padding: 8px 10px 12px;
+  display: flex; flex-direction: column; gap: 8px; touch-action: manipulation; user-select: none;
+}
+.clavier-admin[hidden] { display: none; }
+body.avec-clavier { padding-bottom: 46vh; }
+.clavier-admin .rangee { flex: 1; display: flex; gap: 8px; justify-content: center; }
+.clavier-admin button {
+  flex: 1; max-width: 110px; border-radius: 10px; background: var(--surface-2); color: var(--texte);
+  font-size: 26px; font-weight: 700; border: none;
+}
+.clavier-admin button:active { filter: brightness(1.5); transform: scale(.95); }
+.clavier-admin button.special { max-width: 150px; font-size: 20px; background: var(--bord); }
+.clavier-admin button.espace { flex: 5; max-width: none; font-size: 18px; font-weight: 400; color: var(--texte-doux); }
+.clavier-admin button.actif { background: var(--accent); color: var(--accent-texte); }
+.clavier-admin button.valider { background: var(--accent); color: var(--accent-texte); }
+.clavier-admin .fermer-clavier {
+  flex: 0 0 auto; align-self: flex-end; max-width: none; background: none; font-size: 15px; font-weight: 400;
+  color: var(--texte-doux); padding: 2px 8px;
+}
